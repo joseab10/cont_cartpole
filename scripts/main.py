@@ -29,40 +29,36 @@ if __name__ == "__main__":
 
 
 	scenarios = [
-		#{'desc': 'REINFORCE without Baseline', 'bl': False, 'suffix': 'no_bl'},
-		{'desc': 'REINFORCE with Baseline'   , 'bl': False , 'suffix': 'w_bl', 'rewardF': informative_reward},
-		#{'desc': 'REINFORCE with Baseline'   , 'bl': True , 'suffix': 'w_bl', 'rewardF': None}
+		{'exe': False, 'desc': 'REINFORCE without Baseline', 'bl': False, 'suffix': 'no_bl'},
+		{'exe': True, 'desc': 'REINFORCE with Baseline'   , 'bl': False , 'suffix': 'cont_rfrc_bl_beta', 'rewardF': informative_reward},
+		{'exe': False, 'desc': 'REINFORCE with Baseline'   , 'bl': True , 'suffix': 'w_bl', 'rewardF': None}
 	]
 
 
 
 	for scenario in scenarios:
 
-		#num_runs = 10
+		if scenario['exe']:
+			print()
+			print(scenario['desc'])
 
-		#runs_stats = []
-		#for _ in range(num_runs):
+			env = ContinuousCartPoleEnv(reward_function=scenario['rewardF'])
+			state_dim = env.observation_space.shape[0]
+			action_dim = env.action_space.shape[0]
 
-		print()
-		print(scenario['desc'])
+			reinforce = REINFORCE(env, state_dim, action_dim, gamma=0.99)
 
-		env = ContinuousCartPoleEnv(reward_function=scenario['rewardF'])
-		state_dim = env.observation_space.shape[0]
-		action_dim = env.action_space.shape[0]
+			stats = reinforce.train(episodes, time_steps, baseline=scenario['bl'])
 
-		reinforce = REINFORCE(env, state_dim, action_dim, gamma=0.99)
+			plot_episode_stats(stats, scenario['suffix'])
 
-		stats = reinforce.train(episodes, time_steps, baseline=scenario['bl'])
+			for _ in range(5):
+				s = env.reset()
+				for _ in range(500):
+					env.render()
+					a = reinforce.get_action(s)
+					s, _, d, _ = env.step(a)
+					if d:
+						break
 
-		plot_episode_stats(stats, scenario['suffix'])
-
-		for _ in range(5):
-			s = env.reset()
-			for _ in range(500):
-				env.render()
-				a = reinforce.get_action(s)
-				s, _, d, _ = env.step(a)
-				if d:
-					break
-
-		env.viewer.close()
+			env.viewer.close()

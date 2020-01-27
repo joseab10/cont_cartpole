@@ -20,6 +20,10 @@ EpisodeStats = namedtuple("Stats", ["episode_lengths", "episode_rewards"])
 
 
 def plot_episode_stats(stats, suffix='', smoothing_window=10, noshow=False):
+
+	if suffix is not None or suffix != '':
+		suffix = '_'  + suffix
+
 	# Plot the episode length over time
 	fig1 = plt.figure(figsize=(10, 5))
 	plt.plot(stats.episode_lengths)
