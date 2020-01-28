@@ -5,11 +5,9 @@ import torch.nn.functional as F
 from utils import *
 
 
-
-class StateValueFunction(nn.Module):
-	def __init__(self, state_dim, non_linearity=F.relu, hidden_layers=1, hidden_dim=20):
-
-		super(StateValueFunction, self).__init__()
+class StateActionValueFunction(nn.Module):
+	def __init__(self, state_dim, action_dim, non_linearity=F.relu, hidden_layers=1, hidden_dim=20):
+		super(StateActionValueFunction, self).__init__()
 
 		self._non_linearity = non_linearity
 		# Variable list of Layers
@@ -23,8 +21,7 @@ class StateValueFunction(nn.Module):
 			self.layers.append(nn.Linear(hidden_dim, hidden_dim))
 
 		# Output Layers
-		self.layers.append(nn.Linear(hidden_dim, 1))
-
+		self.layers.append(nn.Linear(hidden_dim, action_dim))
 
 
 	def forward(self, x):
@@ -38,3 +35,12 @@ class StateValueFunction(nn.Module):
 		x = self.layers[-1](x)
 
 		return x
+
+
+
+class StateValueFunction(StateActionValueFunction):
+
+	def __init__(self, state_dim, non_linearity=F.relu, hidden_layers=1, hidden_dim=20):
+
+		super(StateValueFunction, self).__init__(state_dim, 1, non_linearity=non_linearity,
+												 hidden_layers=hidden_layers, hidden_dim=hidden_dim)

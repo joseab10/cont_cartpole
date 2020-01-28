@@ -10,12 +10,13 @@ from value_functions import *
 from policies import *
 
 class REINFORCE:
-	def __init__(self, env, state_dim, action_dim, gamma, cuda=False):
+	def __init__(self, policy, action_fun, state_dim, action_dim, gamma, baseline=False, V = None, cuda=False):
 
-		self._V = StateValueFunction(state_dim)
-		self._pi = BetaPolicy(state_dim, action_dim, act_min=-1, act_max=1)
+		self._V = V
+		self._pi = policy
+		self._action_fun = action_fun
 
-		self.env = env
+		self._baseline = baseline
 
 		if cuda:
 			self._V.cuda()
@@ -23,32 +24,42 @@ class REINFORCE:
 
 		self._gamma = gamma
 		self._loss_function = nn.MSELoss()
-		self._V_optimizer = optim.Adam(self._V.parameters(), lr=0.0001)
+
+		if V is not None and baseline:
+			self._V_optimizer = optim.Adam(self._V.parameters(), lr=0.0001)
+
 		self._pi_optimizer = optim.Adam(self._pi.parameters(), lr=0.0001)
 		self._action_dim = action_dim
 		self._action_indices = np.arange(0, action_dim)
 		self._loss_function = nn.MSELoss()
 
-	def get_action(self, s):
+	def _get_action(self, s, deterministic=False):
 
-		return np.clip(self._pi.get_action(s), -1, 1)
+		return self._pi.get_action(s, deterministic=deterministic)
 
-	def train(self, episodes, time_steps, baseline=False):
+	def get_action(self, s, deterministic=False):
+		return self._action_fun.act2env(self._get_action(s, deterministic=deterministic))
+
+	def train(self, env, episodes, time_steps, initial_state=None):
 		stats = EpisodeStats(episode_lengths=np.zeros(episodes), episode_rewards=np.zeros(episodes))
 
 		for i_episode in range(1, episodes + 1):
 			# Generate an episode.
 			# An episode is an array of (state, action, reward) tuples
 			episode = []
-			s = self.env.reset()
+			s = env.reset(initial_state=initial_state)
+
+			total_r = 0
 			for t in range(time_steps):
-				a = self.get_action(s)
-				ns, r, d, _ = self.env.step(a)
+				a = self._get_action(s)
+				ns, r, d, _ = env.step(self._action_fun.act2env(a))
 
 				stats.episode_rewards[i_episode - 1] += r
 				stats.episode_lengths[i_episode - 1] = t
 
 				episode.append((s, a, r))
+
+				total_r += r
 
 				if d:
 					break
@@ -66,7 +77,7 @@ class REINFORCE:
 
 				G = float(G)
 
-				if baseline:
+				if self._baseline:
 					V = self._V(s)
 					delta = G - V
 
@@ -86,6 +97,14 @@ class REINFORCE:
 
 
 
-			print("\r{} Steps in Episode {}/{}. Reward {}".format(len(episode), i_episode, episodes,
-																  sum([e[2] for i, e in enumerate(episode)])))
+			print("\r{} Steps in Episode {}/{}. Reward {}".format(len(episode), i_episode, episodes, total_r))
 		return stats
+
+	def save(self, dir, file_name):
+
+		if dir != '' and dir[-1] != '/':
+			dir = dir + '/'
+
+		if self._baseline:
+			torch.save(self._V.state_dict(), '{}{}_V_{}.pt'.format(dir, file_name, timestamp()))
+		torch.save(self._pi.state_dict(), '{}{}_pi_{}.pt'.format(dir, file_name, timestamp()))

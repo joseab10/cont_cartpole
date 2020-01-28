@@ -61,8 +61,8 @@ class GaussPolicy(nn.Module):
 		mu = self.mean_layers[-1](mu)
 		sigma = F.softplus(self.var_layers[-1](sigma)) #sigma must always be > 0
 
-		self.mu    = mu
-		self.sigma = sigma
+		self.mu    = mu.clone()
+		self.sigma = sigma.clone()
 
 		sigma2 = sigma**2
 
@@ -70,25 +70,28 @@ class GaussPolicy(nn.Module):
 
 		return p
 
-	def get_action(self, s):
+	def get_action(self, s, deterministic=False):
 
-		if not hasattr(self, 'mu') or not hasattr(self, 'sigma'):
-			self.forward(s, torch.rand(self._action_dim))
+		# Run to get a fresh value for mu and sigma
+		self.forward(s, torch.rand(self._action_dim))
 
 
+		if deterministic:
+			# Mean
+			a = self._mu
 
-		m = torch.distributions.normal.Normal(self.mu, self.sigma)
-		a = m.sample()
-
-		if self._action_dim > 1:
-			p = self.forward(s, a)
-
-			a = np.random.choice(a.detach().numpy(), p.detach().numpy())
-		else:
 			a = a.detach().numpy()
+		else:
+			m = torch.distributions.normal.Normal(self.mu, self.sigma)
+			a = m.sample()
 
-		if np.isnan(a):
-			print('nan')
+			if self._action_dim > 1:
+				p = self.forward(s, a)
+
+				a = np.random.choice(a.detach().numpy(), p.detach().numpy())
+			else:
+				a = a.detach().numpy()
+
 
 		return a
 
@@ -148,7 +151,7 @@ class BetaPolicy(nn.Module):
 
 		# Use softplus to force alpha to be >0
 		alpha = F.softplus(self.a_layers[-1](alpha))
-		self.alpha = alpha
+		self.alpha = alpha.clone()
 
 		beta = s
 		for i in range(len(self.b_layers) - 1):
@@ -156,7 +159,7 @@ class BetaPolicy(nn.Module):
 
 		# Use softplus to force beta to be >0
 		beta = F.softplus(self.b_layers[-1](beta))
-		self.beta = beta
+		self.beta = beta.clone()
 
 		# Linearly transforms a continuous action from [act_min, act_max] to [0, 1] where the Beta PDF is defined
 		transformed_a = self._action_m * a + self._action_b
@@ -171,26 +174,77 @@ class BetaPolicy(nn.Module):
 		return p
 
 
-	def get_action(self, s):
+	def get_action(self, s, deterministic=False):
 
-		if not hasattr(self, 'alpha') or not hasattr(self, 'beta'):
-			self.forward(s, torch.rand(self._action_dim))
+		# Run to get a fresh copy of alpha and beta
+		self.forward(s, torch.rand(self._action_dim))
+
+		alpha = self.alpha.detach().numpy()
+		beta = self.beta.detach().numpy()
 
 
-		m = torch.distributions.beta.Beta(self.alpha, self.beta)
-		a = m.sample()
+		if deterministic:
+			# Mean
+			a = np.zeros_like(alpha)
+			a[alpha != 0 and beta == 0] = 1
+			a[alpha != 0 and beta != 0] = 1 / ( 1 + beta[beta != 0] / alpha[alpha != 0])
 
-		if self._action_dim > 1:
-			p = self.forward(s, a)
+			# Mode
+			#a = (self.alpha - 1) / (self.alpha + self.beta - 2)
 
-			a = np.random.choice(a.detach().numpy(), p.detach().numpy())
 		else:
-			a = a.detach().numpy()
+			m = torch.distributions.beta.Beta(self.alpha, self.beta)
+			a = m.sample()
 
-		if np.isnan(a):
-			print('nan')
+			if self._action_dim > 1:
+				p = self.forward(s, a)
+
+				a = np.random.choice(a.detach().numpy(), p.detach().numpy())
+			else:
+				a = a.detach().numpy()
 
 		# Transform action back to [act_min, act_max] interval
 		a = (a - self._action_b) / self._action_m
+
+		return a
+
+
+
+class EpsilonGreedyPolicy:
+
+	def __init__(self, epsilon, value_function):
+		self.epsilon = epsilon
+		self.value_function = value_function
+
+
+	def __call__(self, s):
+		# Computes the probabilities of taking each action,
+		# giving more weight to the action with the best value-function
+		value = self.value_function(s)
+
+		if isinstance(value, torch.Tensor):
+			value = value.detach().numpy()
+
+		nA = len(value)
+
+		p = np.ones(nA, dtype=float) * self.epsilon / nA
+		best_action = np.random.choice(np.flatnonzero(value == value.max()))
+		p[best_action] += (1.0 - self.epsilon)
+
+		return p
+
+
+	def get_action(self, s, deterministic=False):
+		# Randomly chooses a single action according to their probabilites
+
+		p = self(s)
+
+		if deterministic:
+			a = np.argmax(p)
+		else:
+			nA = len(p)
+			action_indices = np.arange(0, nA)
+
+			a = np.random.choice(action_indices, p=p)
 
 		return a
