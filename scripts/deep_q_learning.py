@@ -14,13 +14,16 @@ from value_functions import *
 class ReplayBuffer:
 	# Replay buffer for experience replay. Stores transitions.
 	def __init__(self, max_size):
+
+		self._max_size = max_size
+		self._create()
+
+	def _create(self):
 		self._data = namedtuple("ReplayBuffer", ["states", "actions", "next_states", "rewards", "terminal_flags"])
 		self._data = self._data(states=[], actions=[], next_states=[], rewards=[], terminal_flags=[])
 		self._size = 0
-		self._max_size = max_size
 
 	def add_transition(self, state, action, next_state, reward, done):
-
 
 		state      = tn(state)
 		action     = tn(action)
@@ -53,6 +56,24 @@ class ReplayBuffer:
 
 		return tt(batch_states), tt(batch_actions), tt(batch_next_states), tt(batch_rewards), tt(batch_terminal_flags.astype(int))
 
+	def __getstate__(self):
+
+		# Get rid of all data when dumping agents
+		attributes = {
+			'_max_size': self._max_size
+		}
+
+		state_dict = {'class': type(self).__name__, 'attributes': attributes}
+
+		return state_dict
+
+	def __setstate__(self, state):
+
+		super(ReplayBuffer, self).__init__()
+
+		for att, value in state['attributes'].items():
+			setattr(self, att, value)
+
 
 def soft_update(target, source, tau):
 	for target_param, param in zip(target.parameters(), source.parameters()):
@@ -64,7 +85,7 @@ def hard_update(target, source):
 
 
 class DQN:
-	def __init__(self, policy, action_fun, q, q_target, state_dim, action_dim, gamma, doubleQ=True, cuda=False, batch_size=64):
+	def __init__(self, policy, action_fun, q, q_target, state_dim, action_dim, gamma, doubleQ=True, batch_size=64):
 
 		self._q = q
 		self._q_target = q_target
@@ -74,16 +95,17 @@ class DQN:
 
 		self._doubleQ = doubleQ
 
-		if cuda:
+		if torch.cuda.is_available():
 			self._q.cuda()
 			self._q_target.cuda()
 
 		self._gamma = gamma
 		self._loss_function = nn.MSELoss()
-		self._q_optimizer = optim.Adam(self._q.parameters(), lr=0.001)
+		self._q_optimizer = optim.Adam(self._q.parameters(), lr=1e-3)
 		self._action_dim = action_dim
 
-		self._replay_buffer = ReplayBuffer(1e6)
+		self._rbuffer_max_size = 1e6
+		self._replay_buffer = ReplayBuffer(self._rbuffer_max_size)
 		self._batch_size = batch_size
 
 	def _get_action(self, s, deterministic=False):
@@ -92,14 +114,15 @@ class DQN:
 	def get_action(self, s, deterministic=False):
 		return self._action_fun.act2env(self._get_action(s, deterministic=deterministic))
 
-	def train(self, env, episodes, time_steps, initial_state=None):
+	def train(self, env, episodes, time_steps, initial_state=None, initial_noise=0.5):
 
-		stats = EpisodeStats(episode_lengths=np.zeros(episodes), episode_rewards=np.zeros(episodes))
+		stats = EpisodeStats(episode_lengths=np.zeros(episodes), episode_rewards=np.zeros(episodes), episode_loss=np.zeros(episodes))
 
 		for e in range(episodes):
 
-			s = env.reset(initial_state=initial_state)
+			s = env.reset(initial_state=initial_state, noise_amplitude=initial_noise)
 			total_r = 0
+			total_episode_loss = 0
 
 			for t in range(time_steps):
 
@@ -117,22 +140,27 @@ class DQN:
 
 				if self._doubleQ:
 
-					# Action Prediction from Q function
-					a_predictions = torch.argmax(self._q(b_nstates), dim=1)
-					a_pred_indices = [torch.arange(self._batch_size).long(), a_predictions]
+					# Q-Values from next states [Q] used only to determine the optima next actions
+					q_nstates = self._q(b_nstates)
+					# Optimal Action Prediction  [Q]
+					nactions = torch.argmax(q_nstates, dim=1)
+					nactions_indices = [torch.arange(self._batch_size).long(), nactions]
 
-					# Q value from Q_target function using the action indices from Q function
-					q_pred = self._q_target(b_nstates)[a_pred_indices]
+					# Q-Values from [Q_target] function using the action indices from [Q] function
+					q_target_nstates = self._q_target(b_nstates)[nactions_indices]
 
 				else:
-					q_pred = torch.max(self._q_target(b_nstates), axis=1)
+					q_target_nstates = self._q_target(b_nstates)
+					q_target_nstates = torch.max(q_target_nstates, axis=1)
 
 
-				target = b_rewards + (1 - b_terminal) * self._gamma * q_pred
+				target_prediction = b_rewards + (1 - b_terminal) * self._gamma * q_target_nstates
 
-				current_prediction = self._q(b_states)[torch.arange(64).long(), b_actions.long()]
+				current_prediction = self._q(b_states)[torch.arange(self._batch_size).long(), b_actions.long()]
 
-				loss = self._loss_function(current_prediction, target.detach())
+				loss = self._loss_function(current_prediction, target_prediction.detach())
+
+				stats.episode_loss[e] += loss.item()
 
 				self._q_optimizer.zero_grad()
 				loss.backward()
@@ -144,14 +172,15 @@ class DQN:
 					break
 				s = ns
 
-			print("{} Steps in Episode {}/{}. Reward {}".format(t + 1, e + 1, episodes, total_r))
+			pr_stats = {'steps': int(stats.episode_lengths[e] + 1), 'episode': e + 1, 'episodes': episodes,
+						'reward': stats.episode_rewards[e], 'loss': stats.episode_loss[e]}
+			print_stats(pr_stats)
+
 
 		return stats
 
-	def save(self, dir, file_name):
 
-		if dir != '' and dir[-1] != '/':
-			dir = dir + '/'
-
-		torch.save(self._q.state_dict(), '{}{}_q_{}.pt'.format(dir, file_name, timestamp()))
-		torch.save(self._q_target.state_dict(), '{}{}_q_target_{}.pt'.format(dir, file_name, timestamp()))
+	def reset_parameters(self):
+		self._q.reset_parameters()
+		self._q_target.reset_parameters()
+		self._replay_buffer = ReplayBuffer(self._rbuffer_max_size)

@@ -1,24 +1,33 @@
 import pickle
 
 from utils import *
+import argparse
 
-with open('../save/data/datadisc_dqn_20200128_080756.pkl', 'rb') as f:
-	data = pickle.load(f)
 
-train_length_means = np.mean(data[0]['lengths'], axis=0)
-train_length_stdev =  np.std(data[0]['lengths'], axis=0)
-train_reward_means = np.mean(data[0]['rewards'], axis=0)
-train_reward_stdev =  np.std(data[0]['lengths'], axis=0)
-test_length_means = np.mean(data[1]['lengths'], axis=0)
-test_length_stdev =  np.std(data[1]['lengths'], axis=0)
-test_reward_means = np.mean(data[1]['rewards'], axis=0)
-test_reward_stdev =  np.std(data[1]['lengths'], axis=0)
+if __name__ == "__main__":
 
-new_data = [{'run': 'train',
-						 'reward_means': train_reward_means, 'reward_stdev': train_reward_stdev, 'rewards': data[0]['rewards'],
-						 'length_means': train_length_means, 'length_stdev': train_length_stdev, 'lengths': data[0]['lengths']},
-			{'run': 'test' ,
-						 'reward_means': test_reward_means, 'reward_stdev': test_reward_stdev, 'rewards': data[1]['rewards'],
-						 'length_means': test_length_means, 'length_stdev': test_length_stdev, 'lengths': data[1]['lengths']}]
+	def_dir = '../save/plots'
+	def_exp = 'plot_stats'
 
-plot_run_stats(new_data, '../save/plots','123', plot_runs=True, noshow=True)
+	parser = argparse.ArgumentParser()
+
+	parser.add_argument('--file', action='store'     , default=''     , help='Path to the data file.'               , type=str)
+
+	parser.add_argument('--nosh', action='store_true', default=False   , help='Do not display the plots.'           )
+
+	parser.add_argument('--save', action='store_true', default=False  , help='Save the plots.'                      )
+	parser.add_argument('--dir' , action='store'     , default=def_dir, help='Path to the data file.'               , type=str)
+	parser.add_argument('--exp' , action='store'     , default=def_exp, help='Experiment name (used for filename).' , type=str)
+
+	parser.add_argument('--runs', action='store_true', default=False  , help='Plot individual runs.')
+	parser.add_argument('--nagg', action='store_true', default=False  , help='Do not plot aggregate stats')
+	parser.add_argument('--smw' , action='store'     , default=10     , help='Smoothing window'                    , type=int)
+
+	args = parser.parse_args()
+
+	with open(args.file, 'rb') as f:
+		stats = pickle.load(f)
+
+	plot_run_stats(stats, dir=args.dir, experiment=args.exp,
+				   plot_runs=args.runs, plot_agg=not args.nagg, smoothing_window=args.smw,
+				   show=not args.nosh, save=args.save)

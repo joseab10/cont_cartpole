@@ -86,7 +86,10 @@ class ContinuousCartPoleEnv(gym.Env):
     def reset(self, initial_state=None, noise_amplitude=0.05):
 
         if initial_state is None:
-            initial_state = [0, 0, np.pi, 0]
+            initial_state = np.array([0, 0, np.pi, 0])
+
+        if noise_amplitude is None:
+            noise_amplitude=0.05
 
         self.state = initial_state
         self.state += self.np_random.uniform(low=-noise_amplitude, high=noise_amplitude, size=(4,))

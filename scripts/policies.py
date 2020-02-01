@@ -4,7 +4,11 @@ import torch.nn.functional as F
 
 import numpy as np
 
+from neural_networks import *
+from probability_functions import *
+
 from utils import *
+
 
 
 class GaussPolicy(nn.Module):
@@ -13,87 +17,104 @@ class GaussPolicy(nn.Module):
 
 		super(GaussPolicy, self).__init__()
 
+		self._state_dim = state_dim
 		self._action_dim = action_dim
 
 		self._mean_non_linearity = mean_non_linearity
-		self._var_non_linearity  = var_non_linearity
+		self._mean_hidden_layers = mean_hidden_layers
+		self._mean_hidden_dim    = mean_hidden_dim
 
-		# Variable list of Layers
-		self.mean_layers = nn.ModuleList()
-		self.var_layers  = nn.ModuleList()
+		self._var_non_linearity = var_non_linearity
+		self._var_hidden_layers = var_hidden_layers
+		self._var_hidden_dim    = var_hidden_dim
 
-		# Input Layers for Mean and Variance
-		self.mean_layers.append(nn.Linear(state_dim, mean_hidden_dim))
-		self.var_layers.append(nn.Linear(state_dim, var_hidden_dim))
-
-		# Hidden Layers for Mean
-		for i in range(mean_hidden_layers):
-			self.mean_layers.append(nn.Linear(mean_hidden_dim, mean_hidden_dim))
-
-		# Hidden Layers for Variance
-		for i in range(var_hidden_layers):
-			self.var_layers.append(nn.Linear(var_hidden_dim, var_hidden_dim))
-
-		# Output Layers for Mean and Variance
-		self.mean_layers.append(nn.Linear(mean_hidden_dim, action_dim))
-		self.var_layers.append(nn.Linear(var_hidden_dim, action_dim))
+		self._create_models()
 
 
-	def forward(self, x, a):
+	def _create_models(self):
 
-		if not isinstance(x, torch.Tensor):
-			x = tt(x)
+		self._mu_fa = MLP(self._state_dim, self._action_dim, hidden_dim=self._mean_hidden_layers,
+						  hidden_non_linearity=self._mean_non_linearity, hidden_layers=self._mean_hidden_layers)
+		self._sigma_fa = MLP(self._state_dim, self._action_dim, hidden_dim=self._var_hidden_dim,
+							 hidden_non_linearity=self._var_non_linearity, hidden_layers=self._var_hidden_layers)
 
-		if not isinstance(a, torch.Tensor):
-			a = tt(a)
+		self._output_layer = NormalDistribution()
 
-		mu = x
-		sigma = x
+	def forward(self, s, a):
 
-		# Input and Hidden Layers for Mean
-		for i in range(len(self.mean_layers) - 1):
-			mu = self._mean_non_linearity(self.mean_layers[i](mu))
+		mu = self._mu_fa(s)
+		sigma = self._sigma_fa(s)
+		p = self._output_layer(a, mu, sigma)
 
-		# Input and Hidden Layers for Variance
-		for i in range(len(self.var_layers) - 1):
-			sigma = self._var_non_linearity(self.var_layers[i](sigma))
-
-		mu = self.mean_layers[-1](mu)
-		sigma = F.softplus(self.var_layers[-1](sigma)) #sigma must always be > 0
-
-		self.mu    = mu.clone()
-		self.sigma = sigma.clone()
-
-		sigma2 = sigma**2
-
-		p = 1 / torch.sqrt(2 * np.pi * sigma2) * torch.exp(torch.div(- (mu - a)**2, 2 * sigma2))
+		# Cache last result
+		self._p = p
 
 		return p
 
 	def get_action(self, s, deterministic=False):
 
 		# Run to get a fresh value for mu and sigma
-		self.forward(s, torch.rand(self._action_dim))
+		if not hasattr(self, '_p'):
+			self.forward(s, torch.rand(self._action_dim))
 
 
 		if deterministic:
-			# Mean
-			a = self._mu
 
-			a = a.detach().numpy()
+			# Get the point of maximum probability, i.e.: the mode
+			a = self._output_layer.mode()
+			a = tn(a)
+
 		else:
-			m = torch.distributions.normal.Normal(self.mu, self.sigma)
-			a = m.sample()
+
+			a = self._output_layer.sample()
 
 			if self._action_dim > 1:
-				p = self.forward(s, a)
-
-				a = np.random.choice(a.detach().numpy(), p.detach().numpy())
+				a = np.random.choice(tn(a), tn(self._p))
 			else:
-				a = a.detach().numpy()
-
+				a = tn(a)
 
 		return a
+
+	def reset_parameters(self):
+
+		self._mu_fa.reset_parameters()
+		self._sigma_fa.reset_parameters()
+		self._output_layer.reset_parameters()
+
+	# Methods used for dumping and loading the state using pickle
+	def __getstate__(self):
+
+		mu_state = self._mu_fa.__getstate__()
+		sigma_state = self._sigma_fa.__getstate__()
+
+		attributes = {
+			'_state_dim'         : self._state_dim,
+			'_action_dim'        : self._action_dim,
+
+			'_mean_non_linearity': activationFunctionStr(self._mean_non_linearity),
+			'_mean_hidden_layers': self._mean_hidden_layers,
+			'_mean_hidden_dim'   : self._mean_hidden_dim,
+
+			'_var_non_linearity' : activationFunctionStr(self._var_non_linearity),
+			'_var_hidden_layers' : self._var_hidden_layers,
+			'_var_hidden_dim'    : self._var_hidden_dim,
+		}
+
+		state_dict = {'class': type(self).__name__, 'attributes': attributes, 'mu_state': mu_state, 'sigma_state': sigma_state}
+
+		return state_dict
+
+	def __setstate__(self, state):
+
+		super(GaussPolicy, self).__init__()
+
+		for att, value in state['attributes'].items():
+			setattr(self, att, value)
+
+		self._create_models()
+
+		self._mu_fa.__setstate__(state['mu_state'])
+		self._sigma_fa.__setstate__(state['sigma_state'])
 
 
 class BetaPolicy(nn.Module):
@@ -113,63 +134,43 @@ class BetaPolicy(nn.Module):
 		self._state_dim = state_dim
 		self._action_dim = action_dim
 
-		#self._beta_func = Beta()
-
 		self._a_non_linearity = a_non_linearity
+		self._a_hidden_layers = a_hidden_layers
+		self._a_hidden_dim    = a_hidden_dim
+
 		self._b_non_linearity = b_non_linearity
+		self._b_hidden_layers = b_hidden_layers
+		self._b_hidden_dim    = b_hidden_dim
 
-		# Variable list of Layers for alpha and beta parameters
-		self.a_layers = nn.ModuleList()
-		self.b_layers  = nn.ModuleList()
+		self._create_models()
 
-		# Input Layers for alpha and beta parameters
-		self.a_layers.append(nn.Linear(state_dim, a_hidden_dim))
-		self.b_layers.append(nn.Linear(state_dim, b_hidden_dim))
+	def _create_models(self):
 
-		# Hidden Layers for alpha and beta parameters
-		for i in range(a_hidden_layers):
-			self.a_layers.append(nn.Linear(a_hidden_dim, a_hidden_dim))
+		# Use softplus to force alpha and beta to be >0
+		self._alpha_fa = MLP(self._state_dim, self._action_dim, output_non_linearity=F.softplus,
+							 hidden_dim=self._a_hidden_dim, hidden_non_linearity=self._a_non_linearity,
+							 hidden_layers=self._a_hidden_layers)
+		self._beta_fa = MLP(self._state_dim, self._action_dim, output_non_linearity=F.softplus,
+							hidden_dim=self._b_hidden_dim,
+							hidden_non_linearity=self._b_non_linearity, hidden_layers=self._b_hidden_layers)
 
-		for i in range(b_hidden_layers):
-			self.b_layers.append(nn.Linear(b_hidden_dim, b_hidden_dim))
-
-		# Output Layers for alpha and beta parameters
-		self.a_layers.append(nn.Linear(a_hidden_dim, action_dim))
-		self.b_layers.append(nn.Linear(b_hidden_dim, action_dim))
+		self._output_layer = BetaDistribution()
 
 	def forward(self, s, a):
 
-		if not isinstance(s, torch.Tensor):
-			s = tt(s)
-
-		if not isinstance(a, torch.Tensor):
-			a = tt(a)
-
-		alpha = s
-		for i in range(len(self.a_layers) - 1):
-			alpha = self._a_non_linearity(self.a_layers[i](alpha))
-
-		# Use softplus to force alpha to be >0
-		alpha = F.softplus(self.a_layers[-1](alpha))
-		self.alpha = alpha.clone()
-
-		beta = s
-		for i in range(len(self.b_layers) - 1):
-			beta = self._b_non_linearity(self.b_layers[i](beta))
-
-		# Use softplus to force beta to be >0
-		beta = F.softplus(self.b_layers[-1](beta))
-		self.beta = beta.clone()
+		s = tt(s)
+		a = tt(a)
 
 		# Linearly transforms a continuous action from [act_min, act_max] to [0, 1] where the Beta PDF is defined
 		transformed_a = self._action_m * a + self._action_b
 
-		# Beta Distribution
+		alpha = self._alpha_fa(s)
+		beta  = self._beta_fa(s)
+		self._alpha = alpha
+		self._beta  = beta
 
-		# Beta(x; alpha, beta) = (1-x)(beta-1) * x ^(alpha-1) / Beta(alpha, beta)
-		beta_ab = torch.exp((torch.lgamma(alpha) + torch.lgamma(beta) - torch.lgamma(alpha + beta)))
-		p = ((1 - transformed_a).pow(beta - 1)) * (transformed_a.pow(alpha - 1)) / beta_ab #self._beta_func(alpha, beta)
-
+		p = self._output_layer(transformed_a, alpha, beta)
+		self._p = p
 
 		return p
 
@@ -179,57 +180,95 @@ class BetaPolicy(nn.Module):
 		# Run to get a fresh copy of alpha and beta
 		self.forward(s, torch.rand(self._action_dim))
 
-		alpha = self.alpha.detach().numpy()
-		beta = self.beta.detach().numpy()
+		alpha = tn(self._alpha)
+		beta = tn(self._beta)
 
 
 		if deterministic:
-			# Mean
-			a = np.zeros_like(alpha)
-			a[alpha != 0 and beta == 0] = 1
-			a[alpha != 0 and beta != 0] = 1 / ( 1 + beta[beta != 0] / alpha[alpha != 0])
 
-			# Mode
-			#a = (self.alpha - 1) / (self.alpha + self.beta - 2)
+			# Get the point of maximum probability, i.e.: the mode
+			a = self._output_layer.mode()
+			a = tn(a)
 
 		else:
-			m = torch.distributions.beta.Beta(self.alpha, self.beta)
-			a = m.sample()
+			a = self._output_layer.sample()
 
 			if self._action_dim > 1:
 				p = self.forward(s, a)
 
-				a = np.random.choice(a.detach().numpy(), p.detach().numpy())
+				a = np.random.choice(tn(a), tn(p))
 			else:
-				a = a.detach().numpy()
+				a = tn(a)
 
 		# Transform action back to [act_min, act_max] interval
 		a = (a - self._action_b) / self._action_m
 
 		return a
 
+	def reset_parameters(self):
+
+		self._alpha_fa.reset_parameters()
+		self._beta_fa.reset_parameters()
+		self._output_layer.reset_parameters()
+
+
+	# Methods used for dumping and loading the state using pickle
+	def __getstate__(self):
+
+		alpha_state = self._alpha_fa.__getstate__()
+		beta_state = self._beta_fa.__getstate__()
+
+		attributes = {
+			'_action_m'       : self._action_m,
+			'_action_b'       : self._action_b,
+
+			'_state_dim'      : self._state_dim,
+			'_action_dim'     : self._action_dim,
+
+			'_a_non_linearity': activationFunctionStr(self._a_non_linearity),
+			'_a_hidden_layers': self._a_hidden_layers,
+			'_a_hidden_dim'   : self._a_hidden_dim,
+
+			'_b_non_linearity': activationFunctionStr(self._b_non_linearity),
+			'_b_hidden_layers': self._b_hidden_layers,
+			'_b_hidden_dim'   : self._b_hidden_dim
+		}
+
+		state_dict = {'class': type(self).__name__, 'attributes': attributes, 'alpha_state': alpha_state,
+					  'beta_state': beta_state}
+
+		return state_dict
+
+	def __setstate__(self, state):
+
+		super(BetaPolicy, self).__init__()
+
+		for att, value in state['attributes'].items():
+			setattr(self, att, value)
+
+		self._create_models()
+
+		self._alpha_fa.__setstate__(state['alpha_state'])
+		self._beta_fa.__setstate__(state['beta_state'])
 
 
 class EpsilonGreedyPolicy:
 
 	def __init__(self, epsilon, value_function):
 		self.epsilon = epsilon
-		self.value_function = value_function
-
+		self._value_function = value_function
 
 	def __call__(self, s):
 		# Computes the probabilities of taking each action,
 		# giving more weight to the action with the best value-function
-		value = self.value_function(s)
-
-		if isinstance(value, torch.Tensor):
-			value = value.detach().numpy()
+		value = self._value_function(s)
+		value = tn(value)
 
 		nA = len(value)
 
-		p = np.ones(nA, dtype=float) * self.epsilon / nA
-		best_action = np.random.choice(np.flatnonzero(value == value.max()))
-		p[best_action] += (1.0 - self.epsilon)
+		p = np.ones(nA, dtype=float) * self.epsilon / (nA - 1)
+		best_action = np.argmax(value)
+		p[best_action] = 1.0 - self.epsilon
 
 		return p
 
@@ -248,3 +287,22 @@ class EpsilonGreedyPolicy:
 			a = np.random.choice(action_indices, p=p)
 
 		return a
+
+
+	# Methods used for dumping and loading the state using pickle
+	def __getstate__(self):
+
+		attributes = {
+			'self.epsilon'       : self.epsilon
+		}
+
+		state_dict = {'class': type(self).__name__, 'attributes': attributes}
+
+		return state_dict
+
+	def __setstate__(self, state):
+
+		super(EpsilonGreedyPolicy, self).__init__()
+
+		for att, value in state['attributes'].items():
+			setattr(self, att, value)

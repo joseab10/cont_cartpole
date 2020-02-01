@@ -1,0 +1,131 @@
+{
+	"global_params": {
+		"model_dir": "../save/models",
+		"plt_dir"  : "../save/plots",
+		"data_dir" : "../save/stats",
+
+		"show": true
+	},
+
+	"experiments": [
+		{
+			"desc": "Continuous REINFORCE agent with baseline and Beta Policy",
+			"file_name": "exp_template_1",
+			"exe": true,
+
+			"params": {
+				"runs": 5,
+				"episodes": 15,
+				"time_steps": 100,
+
+				"test_episodes": 5,
+
+				"state_dim": 4,
+				"action_dim": 1,
+
+				"initial_state": "up",
+				"initial_noise": "360_deg",
+
+				"reward_function": {"class": "informative"},
+
+				"agent": {
+					"class": "reinforce",
+					"args" : {
+
+						"policy": {
+							"class": "beta",
+							"args" : {
+								"act_min"        : -1,
+								"act_max"        : 1,
+								"a_non_linearity": "relu",
+								"a_hidden_layers": 1,
+								"a_hidden_dim"   : 20,
+								"b_non_linearity": "relu",
+								"b_hidden_layers": 1,
+								"b_hidden_dim"   : 20
+							}
+						},
+
+						"action_fun": "clip",
+
+						"gamma": 0.99,
+
+						"baseline": true,
+						"baseline_fun" : {
+							"class": "mlp",
+							"args": {
+								"non_linearity": "relu",
+								"hidden_layers": 1,
+								"hidden_dim"   : 20
+							}
+						}
+					}
+				}
+
+			}
+
+		},
+
+
+		{
+			"desc": "Discrete DQN agent with epsilon-Greedy Policy",
+			"file_name": "exp_template_2",
+			"exe": true,
+
+			"params": {
+				"runs": 5,
+				"episodes": 15,
+				"time_steps": 100,
+
+				"test_episodes": 5,
+
+				"state_dim": 4,
+				"action_dim": 5,
+
+				"initial_state": "none",
+				"initial_noise": "deterministic",
+
+				"reward_function": {"class": "none"},
+
+				"agent": {
+					"class": "dqn",
+					"args" : {
+
+						"action_fun": "disc5",
+
+						"q": {
+							"class": "mlp",
+							"args" : {
+								"non_linearity": "relu",
+								"hidden_layers": 1,
+								"hidden_dim"   : 20
+							}
+						},
+
+						"q_target": {
+							"class": "mlp",
+							"args" : {
+								"non_linearity": "relu",
+								"hidden_layers": 1,
+								"hidden_dim"   : 20
+							}
+						},
+
+						"policy": {
+							"class": "egreedy",
+							"args" : {
+								"epsilon"        : 0.20
+							}
+						},
+
+						"gamma": 0.99,
+
+						"doubleQ": true,
+
+						"batch_size" : 64
+					}
+				}
+			}
+		}
+	]
+}

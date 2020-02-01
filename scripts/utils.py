@@ -12,130 +12,130 @@ from datetime import datetime
 
 
 
-def tt(ndarray, cuda=False):
-	if cuda:
-		return Variable(torch.from_numpy(ndarray).float().cuda(), requires_grad=False)
-	else:
-		return Variable(torch.from_numpy(ndarray).float(), requires_grad=False)
+def tt(ndarray):
+	'''
+	Converts an array to a Pytorch Tensor
+
+	:param ndarray: (list|ndarray) The array to be converted
+	:param cuda:    (bool) Use Cuda
+	:return: 		(torch.Tensor) The converted array
+	'''
+
+	if not isinstance(ndarray, torch.Tensor):
+
+		if not isinstance(ndarray, np.ndarray):
+			ndarray = np.array(ndarray)
+
+		if torch.cuda.is_available():
+			ndarray = Variable(torch.from_numpy(ndarray).float().cuda(), requires_grad=False)
+		else:
+			ndarray = Variable(torch.from_numpy(ndarray).float(), requires_grad=False)
+
+	return ndarray
 
 
-def tn(list):
-	if not isinstance(list, np.ndarray):
-		list = np.array(list)
-	return list
+def tn(value):
+	'''
+	Converts a value to a numpy ndarray
+
+	:param value: () Value to be converted to a numpy array
+	:return: 		(np.ndarray) Value as numpy ndarray
+	'''
+
+	if not isinstance(value, np.ndarray):
+
+		if isinstance(value, torch.Tensor):
+			value = value.detach().numpy()
+
+		else:
+			value = np.array(value)
+
+	return value
 
 
-EpisodeStats = namedtuple("Stats", ["episode_lengths", "episode_rewards"])
+EpisodeStats = namedtuple("Stats", ["episode_lengths", "episode_rewards", "episode_loss"])
 
+def print_header(level, msg):
 
-def plot_episode_stats(stats, dir='', experiment='', smoothing_window=10, noshow=False):
+	underline = ['', '#', '=', '-', '', '', '']
+
+	print(''.join(['\n' for i in range(3 - level)]))
+	print(''.join(['*' for i in range(4 - level)]) + ' ' + msg)
+	print(''.join([underline[level] for i in range(80)]))
+
+def print_stats(stats):
+
+	msg = "{0[steps]:>6d} Steps, in Episode {0[episode]:>6d}/{0[episodes]:<6d}, Reward {0[reward]:=10.3f}"
+
+	if 'loss' in stats:
+		msg += ", Loss {0[loss]:=10.4f}"
+
+	print(msg.format(stats))
+
+def plot_stats(values, dir='', experiment='', run_type='', x_varname='', plot_agg=True, plot_runs=True, smoothing_window=10,
+			   show=True, save=True):
 
 	if experiment is not None or experiment != '':
-		experiment = '_'  + experiment
+		experiment = '_' + experiment
 
 	if dir != '' and dir[-1] != '/':
 		dir = dir + '/'
 
-	# Plot the episode length over time
-	fig1 = plt.figure(figsize=(10, 5))
-	plt.plot(stats.episode_lengths)
-	plt.xlabel("Episode")
-	plt.ylabel("Episode Length")
-	plt.title("Episode Length over Time")
-	fig1.savefig('{}ep_lengths{}{}.png'.format(dir, experiment, timestamp()))
-	if noshow:
-		plt.close(fig1)
-	else:
-		plt.show(fig1)
+	fig = plt.figure(figsize=(10, 5))
 
-	# Plot the episode reward over time
-	fig2 = plt.figure(figsize=(10, 5))
-	rewards_smoothed = pd.Series(stats.episode_rewards).rolling(smoothing_window, min_periods=smoothing_window).mean()
-	plt.plot(rewards_smoothed)
-	plt.xlabel("Episode")
-	plt.ylabel("Episode Reward (Smoothed)")
-	plt.title("Episode Reward over Time (Smoothed over window size {})".format(smoothing_window))
-	fig2.savefig('{}ep_rewards{}{}.png'.format(dir, experiment, timestamp()))
-	if noshow:
-		plt.close(fig2)
-	else:
-		plt.show(fig2)
+	x_values = np.arange(1, values.shape[1] + 1)
+
+	if plot_agg:
+		means = np.mean(values, axis=0)
+		stdev = np.std(values, axis=0)
+		mins  = np.min(values, axis=0)
+		maxs  = np.max(values, axis=0)
 
 
-def plot_mean_stdev(stats, dir='', experiment='', plot_runs=True, smoothing_window=10, noshow=False):
+		# Plot Extreme Area
+		plt.fill_between(x_values, mins, maxs, alpha=0.125, label='Extremes')
+		# Plot Mean +- 1*Sigma Area
+		plt.fill_between(x_values, means - stdev, means + stdev, alpha=0.25, label='1×σ')
+		# Plot Mean Curve
+		plt.plot(x_values, means, '--', label='Mean')
 
-	if experiment is not None or experiment != '':
-		experiment = '_'  + experiment
-
-	if dir != '' and dir[-1] != '/':
-		dir = dir + '/'
-
-	# Plot the episode length over time
-	fig1 = plt.figure(figsize=(10, 5))
-
-
-	lengths = stats['lengths']
-	lengths_means = stats['length_means']
-	lengths_stdev = stats['length_stdev']
-
-	x = np.arange(1, lengths.shape[1] + 1)
-
-	plt.fill_between(x, np.min(lengths, axis=0), np.max(lengths, axis=0), alpha=0.125, label='Extremes')
-	plt.fill_between(x, lengths_means - lengths_stdev, lengths_means + lengths_stdev, alpha=0.25, label='Stdev')
-	plt.plot(x, lengths_means, '--', label='Mean')
-
+	# Plot individual runs
 	if plot_runs:
-		for i in range(lengths.shape[0]):
-			plt.plot(x, lengths[i,:], label='Run {}'.format(i + 1), linewidth=0.5)
+		for i in range(values.shape[0]):
+			if smoothing_window > 3 * values.shape[1]:
+				values = pd.Series(values[i, :]).rolling(smoothing_window, min_periods=smoothing_window).mean()
 
-	#plt.plot(stats['lengths'])
+			plt.plot(x_values, values[i,:], label='Run {}'.format(i + 1), linewidth=0.5)
+
+	# Plot Information
 	plt.xlabel("Episode")
-	plt.ylabel("Episode Length")
-	plt.title("Episode Length over Time")
+	plt.ylabel("Episode " + x_varname)
+	plt.title(run_type + "Episode " + x_varname + " over Time")
 	plt.legend()
-	fig1.savefig('{}plot{}_ep_lengths_{}.png'.format(dir, experiment, timestamp()))
-	if noshow:
-		plt.close(fig1)
+
+	# Save Plot as png
+	if save:
+		fig.savefig('{}plot{}_ep_{}_{}.png'.format(dir, experiment, x_varname.lower() + 's', timestamp()))
+
+	if show:
+		plt.show(fig)
 	else:
-		plt.show(fig1)
+		plt.close(fig)
 
 
-	# Plot the episode length over time
-	fig2 = plt.figure(figsize=(10, 5))
+def plot_run_stats(stats, dir='', experiment='', plot_runs=True, plot_agg=True, smoothing_window=10, show=True, save=True):
 
-	rewards = stats['rewards']
-	rewards_means = stats['reward_means']
-	rewards_stdev = stats['reward_stdev']
+	for runs in stats:
+		run = runs['run']
+		substats = runs['stats']
 
-	x = np.arange(1, rewards.shape[1] + 1)
+		for varname, substat in substats.items():
 
-	plt.fill_between(x, np.min(rewards, axis=0), np.max(rewards, axis=0), alpha=0.125, label='Extremes')
-	plt.fill_between(x, rewards_means - rewards_stdev, rewards_means + rewards_stdev, alpha=0.25, label='Stdev')
-	plt.plot(x, rewards_means, '--', label='Mean')
+			if not np.all(substat == 0):
 
-	if plot_runs:
-		for i in range(rewards.shape[0]):
-			rewards_smoothed = pd.Series(rewards[i, :]).rolling(smoothing_window,
-																		min_periods=smoothing_window).mean()
-			plt.plot(x, rewards_smoothed, label='Run {}'.format(i + 1), linewidth=0.5)
-
-	# plt.plot(stats['lengths'])
-	plt.xlabel("Episode")
-	plt.ylabel("Episode Reward")
-	plt.title("Episode Reward over Time")
-	plt.legend()
-	fig2.savefig('{}plot{}_ep_reward_{}.png'.format(dir, experiment, timestamp()))
-	if noshow:
-		plt.close(fig2)
-	else:
-		plt.show(fig2)
-
-
-def plot_run_stats(stats, dir='', experiment='', plot_runs=True, smoothing_window=10, noshow=False):
-
-	for stat in stats:
-		plot_mean_stdev(stat, dir=dir, experiment=experiment + '_' + stat['run'], plot_runs=plot_runs, smoothing_window=smoothing_window, noshow=noshow)
-
+				plot_stats(substat, dir=dir, experiment=experiment + '_' + run, run_type=run.title() + ' ',
+						   x_varname=varname.title(), plot_runs=plot_runs, plot_agg=plot_agg,
+						   smoothing_window=smoothing_window, show=show, save=save)
 
 def timestamp():
 	return datetime.now().strftime("%Y%m%d_%H%M%S")

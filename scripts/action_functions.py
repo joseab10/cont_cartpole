@@ -1,3 +1,4 @@
+import numpy as np
 
 class ActCont2Cont:
 	def __init__(self, act2env_f, env2act_f):
@@ -24,7 +25,7 @@ class ActDisc2Cont:
 				self._env2act_mapping[cont] = disc
 
 	def act2env(self, a):
-		return [self._act2env_mapping[a]]
+		return np.array([self._act2env_mapping[a]])
 
 	def env2act(self, a):
 		return self._env2act_mapping[a]

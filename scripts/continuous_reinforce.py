@@ -10,28 +10,35 @@ from value_functions import *
 from policies import *
 
 class REINFORCE:
-	def __init__(self, policy, action_fun, state_dim, action_dim, gamma, baseline=False, V = None, cuda=False):
+	def __init__(self, policy, action_fun, state_dim, action_dim, gamma, baseline=False, baseline_fun = None):
 
-		self._V = V
+		self.baseline_fun = baseline_fun
 		self._pi = policy
 		self._action_fun = action_fun
 
+		self._state_dim  = state_dim
+		self._action_dim = action_dim
+
 		self._baseline = baseline
 
-		if cuda:
-			self._V.cuda()
+		self._gamma = gamma
+
+		self._create_model()
+
+	def _create_model(self):
+
+		if torch.cuda.is_available():
+			self.baseline_fun.cuda()
 			self._pi.cuda()
 
-		self._gamma = gamma
-		self._loss_function = nn.MSELoss()
+		self._action_indices = np.arange(0, self._action_dim)
 
-		if V is not None and baseline:
-			self._V_optimizer = optim.Adam(self._V.parameters(), lr=0.0001)
+		# Optimizers and loss function
+		if self.baseline_fun is not None and self._baseline:
+			self._V_optimizer = optim.Adam(self.baseline_fun.parameters(), lr=0.0001)
+			self._loss_function = nn.MSELoss()
 
 		self._pi_optimizer = optim.Adam(self._pi.parameters(), lr=0.0001)
-		self._action_dim = action_dim
-		self._action_indices = np.arange(0, action_dim)
-		self._loss_function = nn.MSELoss()
 
 	def _get_action(self, s, deterministic=False):
 
@@ -40,22 +47,22 @@ class REINFORCE:
 	def get_action(self, s, deterministic=False):
 		return self._action_fun.act2env(self._get_action(s, deterministic=deterministic))
 
-	def train(self, env, episodes, time_steps, initial_state=None):
-		stats = EpisodeStats(episode_lengths=np.zeros(episodes), episode_rewards=np.zeros(episodes))
+	def train(self, env, episodes, time_steps, initial_state=None, initial_noise=0.5):
+		stats = EpisodeStats(episode_lengths=np.zeros(episodes), episode_rewards=np.zeros(episodes), episode_loss=np.zeros(episodes))
 
-		for i_episode in range(1, episodes + 1):
+		for e in range(episodes):
 			# Generate an episode.
 			# An episode is an array of (state, action, reward) tuples
 			episode = []
-			s = env.reset(initial_state=initial_state)
+			s = env.reset(initial_state=initial_state, noise_amplitude=initial_noise)
 
 			total_r = 0
 			for t in range(time_steps):
 				a = self._get_action(s)
 				ns, r, d, _ = env.step(self._action_fun.act2env(a))
 
-				stats.episode_rewards[i_episode - 1] += r
-				stats.episode_lengths[i_episode - 1] = t
+				stats.episode_rewards[e] += r
+				stats.episode_lengths[e] = t
 
 				episode.append((s, a, r))
 
@@ -78,10 +85,10 @@ class REINFORCE:
 				G = float(G)
 
 				if self._baseline:
-					V = self._V(s)
+					V = self.baseline_fun(s)
 					delta = G - V
 
-					v_loss = self._loss_function(G, self._V(s))
+					v_loss = self._loss_function(G, self.baseline_fun(s))
 
 					self._V_optimizer.zero_grad()
 					v_loss.backward()
@@ -91,20 +98,20 @@ class REINFORCE:
 				else:
 					score_fun = - ((self._gamma ** t) * G) * torch.log(self._pi(s, a))
 
+				stats.episode_loss[e] += score_fun[0].item()
+
 				self._pi_optimizer.zero_grad()
 				score_fun.backward()
 				self._pi_optimizer.step()
 
+			pr_stats = {'steps': int(stats.episode_lengths[e] + 1), 'episode': e + 1, 'episodes': episodes,
+						'reward': stats.episode_rewards[e], 'loss': stats.episode_loss[e]}
+			print_stats(pr_stats)
 
-
-			print("\r{} Steps in Episode {}/{}. Reward {}".format(len(episode), i_episode, episodes, total_r))
 		return stats
 
-	def save(self, dir, file_name):
-
-		if dir != '' and dir[-1] != '/':
-			dir = dir + '/'
+	def reset_parameters(self):
+		self._pi.reset_parameters()
 
 		if self._baseline:
-			torch.save(self._V.state_dict(), '{}{}_V_{}.pt'.format(dir, file_name, timestamp()))
-		torch.save(self._pi.state_dict(), '{}{}_pi_{}.pt'.format(dir, file_name, timestamp()))
+			self.baseline_fun.reset_parameters()
