@@ -57,81 +57,11 @@ def test_agent(env, agent, episodes=5, time_steps=500, initial_state=None, initi
 
 if __name__ == "__main__":
 
-
-	#runs       =   3 # 10 For the purpose of collecting more data given the stochastic nature of the algorithms
-	#episodes   = 10 # 5000 Number of training episodes per run
-	#time_steps =  200 # 500 Number of maximum time steps per episode
-
-	#test_episodes = 5 # Number of testing episodes per run
-
-
-	#state_dim = 4
-	#cont_act_dim = 1
-	#disc2_act_dim = 2
-	#disc4_act_dim = 2
-
-	#gamma = 0.99
-
-	#visualize = True
-
-	# Upright starting position
-	#initial_state = np.zeros(4)
-	# Downwards starting position
-	#initial_state = np.array([0., 0., np.pi, 0.])
-
-	# Little starting noise
-	#initial_noise = 0.5
-	# 360º starting noise for angular position
-	#initial_noise = np.array([0.75, 0.5, np.pi, 0.5])
-
-
-
-
 	parser = argparse.ArgumentParser()
 
 	parser.add_argument('--exp', action='store', default='experiments_example.json', help='Path to the experiments file.', type=str)
 
 	args = parser.parse_args()
-
-	# Value Functions
-	#Q = StateActionValueFunction(state_dim, disc2_act_dim)
-	#Q_Target = StateActionValueFunction(state_dim, disc2_act_dim)
-
-	#Q4 = StateActionValueFunction(state_dim, disc4_act_dim)
-	#Q4_Target = StateActionValueFunction(state_dim, disc4_act_dim)
-
-	#V = StateValueFunction(state_dim)
-
-	# Policies
-	#beta_policy = BetaPolicy(state_dim, cont_act_dim, act_min=-1, act_max=1)
-	#epsilon_greedy = EpsilonGreedyPolicy(0.2, Q)
-	#epsilon_greedy4 = EpsilonGreedyPolicy(0.2, Q4)
-
-	# Action Preprocessing functions
-
-
-
-	# Algorithms
-	#dqn_algorithm = DQN(epsilon_greedy, act_disc2cont, Q, Q_Target, state_dim, disc2_act_dim, gamma=gamma, doubleQ=True)
-	#dqn4_algorithm = DQN(epsilon_greedy4, act_disc4cont, Q4, Q4_Target, state_dim, disc4_act_dim, gamma=gamma, doubleQ=True)
-	#reinforce     = REINFORCE(beta_policy, act_clipcont, state_dim, cont_act_dim, gamma=gamma)
-	#reinforce_wbl = REINFORCE(beta_policy, act_clipcont, state_dim, cont_act_dim, gamma=gamma, baseline = True, V=V)
-
-
-
-	#scenarios = [
-	#	{'exe': False, 'desc': 'REINFORCE without Baseline'     , 'alg': reinforce    , 'suffix': 'no_bl'                  , 'rewardF': None              , 'init': None, 'noise': None},
-	#	{'exe': False,  'desc': 'REINFORCE with BL, OF, and Init', 'alg': reinforce_wbl, 'suffix': 'cont_rfc_bl_of_in_beta_', 'rewardF': informative_reward, 'init': initial_state, 'noise': None},
-	#	{'exe': False,  'desc': 'DQN'                            , 'alg': dqn_algorithm, 'suffix': 'disc_dqn'               , 'rewardF': None              , 'init': None, 'noise': None},
-	#	{'exe': False, 'desc': 'DQN', 'alg': dqn_algorithm, 'suffix': 'disc2_dqn_nis', 'rewardF': None, 'init': None, 'noise': initial_noise}, # Best so far
-	#	{'exe': False, 'desc': 'DQN4', 'alg': dqn4_algorithm, 'suffix': 'disc4_dqn_nis', 'rewardF': None, 'init': None,
-	#	 'noise': initial_noise},
-	#	{'exe': True,  'desc': 'DQN with Info ObjectiveFunc'    , 'alg': dqn_algorithm, 'suffix': 'disc_dqn_of'            , 'rewardF': informative_reward, 'init': None, 'noise': None},
-	#	{'exe': True, 'desc': 'DQN with Info RewardFunc', 'alg': dqn_algorithm, 'suffix': 'disc2_dqn_rf_in',
-	#	 'rewardF': informative_reward, 'init': initial_state, 'noise': initial_noise},
-	#	{'exe': True, 'desc': 'DQN4 with Info RewardFunc', 'alg': dqn4_algorithm, 'suffix': 'disc4_dqn_rf_in',
-	#	 'rewardF': informative_reward, 'init': initial_state, 'noise': initial_noise}
-	#]
 
 	# Load Parameters and Experiments from JSON File
 	parameters = load_parameters(args.exp)
@@ -141,6 +71,10 @@ if __name__ == "__main__":
 	model_dir = global_params['model_dir']
 	plt_dir = global_params['plt_dir']
 	data_dir = global_params['data_dir']
+
+	mkdir(model_dir)
+	mkdir(plt_dir)
+	mkdir(data_dir)
 
 	show = global_params['show']
 
@@ -192,6 +126,7 @@ if __name__ == "__main__":
 				run_train_stats.append(stats)
 
 				# Save agent checkpoint
+
 				with open('{}/model_{}_run_{}_{}.pkl'.format(model_dir, file_name, run, timestamp()), 'wb') as f:
 					pickle.dump(agent, f)
 

@@ -1,0 +1,39 @@
+{
+	"experiments": [
+		{
+			"desc": "Default Continuous REINFORCE",
+			"file_name": "exp_min_1",
+
+			"params": {
+				"runs": 5,
+				"episodes": 15,
+				"time_steps": 100,
+
+				"test_episodes": 5,
+
+				"agent": {
+					"class": "reinforce"
+				}
+			}
+		},
+
+
+		{
+			"desc": "Default Discrete DQN",
+			"file_name": "exp_min_2",
+
+			"params": {
+				"state_dim": 4,
+				"action_dim": 5,
+
+				"agent": {
+					"class": "dqn",
+					"args" : {
+
+						"action_fun": "disc5"
+					}
+				}
+			}
+		}
+	]
+}

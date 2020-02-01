@@ -10,6 +10,12 @@ from collections import namedtuple
 
 from datetime import datetime
 
+from pathlib import Path
+
+
+def mkdir(dir):
+	if not Path(dir).exists():
+		Path(dir).mkdir(parents=True, exist_ok=True)
 
 
 def tt(ndarray):
@@ -55,6 +61,7 @@ def tn(value):
 
 EpisodeStats = namedtuple("Stats", ["episode_lengths", "episode_rewards", "episode_loss"])
 
+
 def print_header(level, msg):
 
 	underline = ['', '#', '=', '-', '', '', '']
@@ -62,6 +69,7 @@ def print_header(level, msg):
 	print(''.join(['\n' for i in range(3 - level)]))
 	print(''.join(['*' for i in range(4 - level)]) + ' ' + msg)
 	print(''.join([underline[level] for i in range(80)]))
+
 
 def print_stats(stats):
 
@@ -71,6 +79,7 @@ def print_stats(stats):
 		msg += ", Loss {0[loss]:=10.4f}"
 
 	print(msg.format(stats))
+
 
 def plot_stats(values, dir='', experiment='', run_type='', x_varname='', plot_agg=True, plot_runs=True, smoothing_window=10,
 			   show=True, save=True):
@@ -115,6 +124,7 @@ def plot_stats(values, dir='', experiment='', run_type='', x_varname='', plot_ag
 
 	# Save Plot as png
 	if save:
+		mkdir(dir)
 		fig.savefig('{}plot{}_ep_{}_{}.png'.format(dir, experiment, x_varname.lower() + 's', timestamp()))
 
 	if show:
@@ -136,6 +146,7 @@ def plot_run_stats(stats, dir='', experiment='', plot_runs=True, plot_agg=True, 
 				plot_stats(substat, dir=dir, experiment=experiment + '_' + run, run_type=run.title() + ' ',
 						   x_varname=varname.title(), plot_runs=plot_runs, plot_agg=plot_agg,
 						   smoothing_window=smoothing_window, show=show, save=save)
+
 
 def timestamp():
 	return datetime.now().strftime("%Y%m%d_%H%M%S")

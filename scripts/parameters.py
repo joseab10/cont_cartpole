@@ -134,9 +134,9 @@ _para_init_states_dict = {
 init_noise_360 = np.array([0.5, 0.5, np.pi, 0.5])
 
 _para_init_noises_dict = {
-	'0': 0, 'det': 0, 'deterministic': 0,
-	'1': None, 'no': None, 'none': None, 'default': None,
-	'2': init_noise_360, '360_deg': init_noise_360
+	'0': 0, 'det': 0, 'deterministic': 0, 'no': 0, 'none': 0,
+	'1': None, 'default': None,
+	'2': init_noise_360, '360_deg': init_noise_360, '360': init_noise_360
 }
 
 
@@ -178,7 +178,7 @@ _para_reward_func_dict = {
 # Action Functions
 #--------------------------------------------------------------------------------
 def ident(a):
-	return tn([a])
+	return tn(a)
 
 def clip_action(a):
 	return np.clip(a, -1, 1)
