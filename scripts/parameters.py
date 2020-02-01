@@ -16,14 +16,16 @@ import json
 #
 #================================================================================
 
-def parse_reward_function(key):
-	return _para_parse_primitive(key, {}, _para_reward_func_dict)
+def parse_reward_function(key, refs):
+	return _para_parse_obj(key, {}, _para_reward_func_dict, refs, addref=False)
 
 def parse_init_state(key):
-	return _para_parse_primitive(key, {}, _para_init_states_dict)
+	refs = {}
+	return _para_parse_primitive(key, {}, _para_init_states_dict, refs, addref=False)
 
 def parse_init_noise(key):
-	return _para_parse_primitive(key, {}, _para_init_noises_dict)
+	refs = {}
+	return _para_parse_primitive(key, {}, _para_init_noises_dict, refs, addref=False)
 
 
 #================================================================================

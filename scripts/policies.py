@@ -81,41 +81,6 @@ class GaussPolicy(nn.Module):
 		self._sigma_fa.reset_parameters()
 		self._output_layer.reset_parameters()
 
-	# Methods used for dumping and loading the state using pickle
-	def __getstate__(self):
-
-		mu_state = self._mu_fa.__getstate__()
-		sigma_state = self._sigma_fa.__getstate__()
-
-		attributes = {
-			'_state_dim'         : self._state_dim,
-			'_action_dim'        : self._action_dim,
-
-			'_mean_non_linearity': activationFunctionStr(self._mean_non_linearity),
-			'_mean_hidden_layers': self._mean_hidden_layers,
-			'_mean_hidden_dim'   : self._mean_hidden_dim,
-
-			'_var_non_linearity' : activationFunctionStr(self._var_non_linearity),
-			'_var_hidden_layers' : self._var_hidden_layers,
-			'_var_hidden_dim'    : self._var_hidden_dim,
-		}
-
-		state_dict = {'class': type(self).__name__, 'attributes': attributes, 'mu_state': mu_state, 'sigma_state': sigma_state}
-
-		return state_dict
-
-	def __setstate__(self, state):
-
-		super(GaussPolicy, self).__init__()
-
-		for att, value in state['attributes'].items():
-			setattr(self, att, value)
-
-		self._create_models()
-
-		self._mu_fa.__setstate__(state['mu_state'])
-		self._sigma_fa.__setstate__(state['sigma_state'])
-
 
 class BetaPolicy(nn.Module):
 	def __init__(self, state_dim, action_dim=1, act_min=0, act_max = 1,
@@ -212,46 +177,6 @@ class BetaPolicy(nn.Module):
 		self._output_layer.reset_parameters()
 
 
-	# Methods used for dumping and loading the state using pickle
-	def __getstate__(self):
-
-		alpha_state = self._alpha_fa.__getstate__()
-		beta_state = self._beta_fa.__getstate__()
-
-		attributes = {
-			'_action_m'       : self._action_m,
-			'_action_b'       : self._action_b,
-
-			'_state_dim'      : self._state_dim,
-			'_action_dim'     : self._action_dim,
-
-			'_a_non_linearity': activationFunctionStr(self._a_non_linearity),
-			'_a_hidden_layers': self._a_hidden_layers,
-			'_a_hidden_dim'   : self._a_hidden_dim,
-
-			'_b_non_linearity': activationFunctionStr(self._b_non_linearity),
-			'_b_hidden_layers': self._b_hidden_layers,
-			'_b_hidden_dim'   : self._b_hidden_dim
-		}
-
-		state_dict = {'class': type(self).__name__, 'attributes': attributes, 'alpha_state': alpha_state,
-					  'beta_state': beta_state}
-
-		return state_dict
-
-	def __setstate__(self, state):
-
-		super(BetaPolicy, self).__init__()
-
-		for att, value in state['attributes'].items():
-			setattr(self, att, value)
-
-		self._create_models()
-
-		self._alpha_fa.__setstate__(state['alpha_state'])
-		self._beta_fa.__setstate__(state['beta_state'])
-
-
 class EpsilonGreedyPolicy:
 
 	def __init__(self, epsilon, value_function):
@@ -287,22 +212,3 @@ class EpsilonGreedyPolicy:
 			a = np.random.choice(action_indices, p=p)
 
 		return a
-
-
-	# Methods used for dumping and loading the state using pickle
-	def __getstate__(self):
-
-		attributes = {
-			'self.epsilon'       : self.epsilon
-		}
-
-		state_dict = {'class': type(self).__name__, 'attributes': attributes}
-
-		return state_dict
-
-	def __setstate__(self, state):
-
-		super(EpsilonGreedyPolicy, self).__init__()
-
-		for att, value in state['attributes'].items():
-			setattr(self, att, value)

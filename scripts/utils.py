@@ -100,13 +100,18 @@ def plot_stats(values, dir='', experiment='', run_type='', x_varname='', plot_ag
 		mins  = np.min(values, axis=0)
 		maxs  = np.max(values, axis=0)
 
+		medians = np.percentile(values, 50, axis=0)
 
 		# Plot Extreme Area
 		plt.fill_between(x_values, mins, maxs, alpha=0.125, label='Extremes')
 		# Plot Mean +- 1*Sigma Area
-		plt.fill_between(x_values, means - stdev, means + stdev, alpha=0.25, label='1×σ')
+		#plt.fill_between(x_values, means - stdev, means + stdev, alpha=0.25, label='1×σ')
+		# Plot IQR Area
+		plt.fill_between(x_values, np.percentile(values, 25, axis=0), np.percentile(values, 75, axis=0), alpha=0.35, label='IQR')
 		# Plot Mean Curve
-		plt.plot(x_values, means, '--', label='Mean')
+		#plt.plot(x_values, means, '--', label='Mean')
+		# Plot Median Curve
+		plt.plot(x_values, medians, '--', label='Median', linewidth=1.5)
 
 	# Plot individual runs
 	if plot_runs:
@@ -114,7 +119,7 @@ def plot_stats(values, dir='', experiment='', run_type='', x_varname='', plot_ag
 			if smoothing_window > 3 * values.shape[1]:
 				values = pd.Series(values[i, :]).rolling(smoothing_window, min_periods=smoothing_window).mean()
 
-			plt.plot(x_values, values[i,:], label='Run {}'.format(i + 1), linewidth=0.5)
+			plt.plot(x_values, values[i,:], label='Run {}'.format(i + 1), linewidth=0.25)
 
 	# Plot Information
 	plt.xlabel("Episode")
@@ -143,7 +148,7 @@ def plot_run_stats(stats, dir='', experiment='', plot_runs=True, plot_agg=True, 
 
 			if not np.all(substat == 0):
 
-				plot_stats(substat, dir=dir, experiment=experiment + '_' + run, run_type=run.title() + ' ',
+				plot_stats(substat, dir=dir + '/' + experiment, experiment=experiment + '_' + run, run_type=run.title() + ' ',
 						   x_varname=varname.title(), plot_runs=plot_runs, plot_agg=plot_agg,
 						   smoothing_window=smoothing_window, show=show, save=save)
 

@@ -1,0 +1,201 @@
+{
+	"global_params": {
+		"model_dir": "../save/models",
+		"plt_dir"  : "../save/plots",
+		"data_dir" : "../save/stats",
+
+		"show": false
+	},
+
+	"experiments": [
+		{
+			"desc": "Continuous REINFORCE agent w/ {BetaP} and wo/ {BL, RwF}",
+			"file_name": "exp_rfc_nobl_norf",
+			"exe": true,
+
+			"params": {
+				"runs": 5,
+				"episodes": 3000,
+				"time_steps": 500,
+
+				"test_episodes": 10,
+
+				"state_dim": 4,
+				"action_dim": 1,
+
+				"initial_state": "up",
+				"initial_noise": "360_deg",
+
+				"agent": {
+					"class": "reinforce",
+					"args" : {
+
+						"policy": {
+							"class": "beta"
+						},
+
+						"action_fun": "clip",
+
+						"gamma": 0.99,
+
+						"baseline": false
+					}
+				}
+
+			}
+
+		},
+
+		{
+			"desc": "Continuous REINFORCE agent w/ {BetaP, BL} and wo/ {RwF}",
+			"file_name": "exp_rfc_norf",
+			"exe": true,
+
+			"params": {
+				"runs": 5,
+				"episodes": 3000,
+				"time_steps": 500,
+
+				"test_episodes": 10,
+
+				"state_dim": 4,
+				"action_dim": 1,
+
+				"initial_state": "up",
+				"initial_noise": "360_deg",
+
+				"agent": {
+					"class": "reinforce",
+					"args" : {
+
+						"policy": {
+							"class": "beta",
+							"args" : {
+								"act_min"        : -1,
+								"act_max"        : 1,
+								"a_non_linearity": "relu",
+								"a_hidden_layers": 1,
+								"a_hidden_dim"   : 20,
+								"b_non_linearity": "relu",
+								"b_hidden_layers": 1,
+								"b_hidden_dim"   : 20
+							}
+						},
+
+						"action_fun": "clip",
+
+						"gamma": 0.99,
+
+						"baseline": true,
+						"baseline_fun" : {
+							"class": "mlp",
+							"args": {
+								"non_linearity": "relu",
+								"hidden_layers": 1,
+								"hidden_dim"   : 20
+							}
+						}
+					}
+				}
+
+			}
+		},
+
+		{
+			"desc": "Continuous REINFORCE agent w/ {BetaP, RwF} and wo/ {BL}",
+			"file_name": "exp_rfc_nobl",
+			"exe": true,
+
+			"params": {
+				"runs": 5,
+				"episodes": 3000,
+				"time_steps": 500,
+
+				"test_episodes": 10,
+
+				"state_dim": 4,
+				"action_dim": 1,
+
+				"initial_state": "up",
+				"initial_noise": "360_deg",
+
+				"reward_function": {"class": "informative"},
+
+				"agent": {
+					"class": "reinforce",
+					"args" : {
+
+						"policy": {
+							"class": "beta"
+						},
+
+						"action_fun": "clip",
+
+						"gamma": 0.99,
+
+						"baseline": false
+					}
+				}
+
+			}
+
+		},
+
+		{
+			"desc": "Continuous REINFORCE agent w/ {BetaP, BL, RwF}",
+			"file_name": "exp_rfc",
+			"exe": true,
+
+			"params": {
+				"runs": 5,
+				"episodes": 3000,
+				"time_steps": 500,
+
+				"test_episodes": 10,
+
+				"state_dim": 4,
+				"action_dim": 1,
+
+				"initial_state": "up",
+				"initial_noise": "360_deg",
+
+				"reward_function": {"class": "informative"},
+
+				"agent": {
+					"class": "reinforce",
+					"args" : {
+
+						"policy": {
+							"class": "beta",
+							"args" : {
+								"act_min"        : -1,
+								"act_max"        : 1,
+								"a_non_linearity": "relu",
+								"a_hidden_layers": 1,
+								"a_hidden_dim"   : 20,
+								"b_non_linearity": "relu",
+								"b_hidden_layers": 1,
+								"b_hidden_dim"   : 20
+							}
+						},
+
+						"action_fun": "clip",
+
+						"gamma": 0.99,
+
+						"baseline": true,
+						"baseline_fun" : {
+							"class": "mlp",
+							"args": {
+								"non_linearity": "relu",
+								"hidden_layers": 1,
+								"hidden_dim"   : 20
+							}
+						}
+					}
+				}
+
+			}
+		}
+	]
+}

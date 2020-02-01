@@ -30,7 +30,7 @@ if __name__ == "__main__":
 	args = parser.parse_args()
 
 
-	reward_function = parse_reward_function(args.rew)
+	reward_function = parse_reward_function(args.rew, {'time_steps': args.ts})
 	initial_state = parse_init_state(args.inist)
 	initial_noise = parse_init_noise(args.inirnd)
 

@@ -126,8 +126,9 @@ if __name__ == "__main__":
 				run_train_stats.append(stats)
 
 				# Save agent checkpoint
-
-				with open('{}/model_{}_run_{}_{}.pkl'.format(model_dir, file_name, run, timestamp()), 'wb') as f:
+				exp_model_dir = model_dir + '/' + file_name
+				mkdir(exp_model_dir)
+				with open('{}/model_{}_run_{}_{}.pkl'.format(exp_model_dir, file_name, run + 1, timestamp()), 'wb') as f:
 					pickle.dump(agent, f)
 
 				# Run (deterministic) tests on the trained agent and save the statistics
@@ -161,7 +162,9 @@ if __name__ == "__main__":
 						{'run': 'test' , 'stats': {'rewards': test_rewards , 'lengths': test_lengths}}]
 
 			# Save Statistics
-			with open(data_dir + '/data' + file_name + '_' + timestamp() + '.pkl', 'wb') as f:
+			exp_stats_dir = data_dir + '/' + file_name
+			mkdir(exp_stats_dir)
+			with open('{}/stats_{}_{}.pkl'.format(exp_stats_dir, file_name, timestamp()), 'wb') as f:
 				pickle.dump(plot_stats, f)
 
 			# Plot Statistics
