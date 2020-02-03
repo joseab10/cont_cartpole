@@ -85,7 +85,7 @@ def hard_update(target, source):
 
 
 class DQN:
-	def __init__(self, policy, action_fun, q, q_target, state_dim, action_dim, gamma, doubleQ=True, batch_size=64):
+	def __init__(self, policy, action_fun, q, q_target, state_dim, action_dim, gamma, doubleQ=True, batch_size=64, lr=1e-4):
 
 		self._q = q
 		self._q_target = q_target
@@ -100,13 +100,18 @@ class DQN:
 			self._q_target.cuda()
 
 		self._gamma = gamma
-		self._loss_function = nn.MSELoss()
-		self._q_optimizer = optim.Adam(self._q.parameters(), lr=1e-3)
+
+
+		self._state_dim  = state_dim
 		self._action_dim = action_dim
 
 		self._rbuffer_max_size = 1e6
 		self._replay_buffer = ReplayBuffer(self._rbuffer_max_size)
 		self._batch_size = batch_size
+		self._learning_rate = lr
+
+		self._loss_function = nn.MSELoss()
+		self._q_optimizer = optim.Adam(self._q.parameters(), lr=self._learning_rate)
 
 	def _get_action(self, s, deterministic=False):
 		return self._pi.get_action(s, deterministic=deterministic)

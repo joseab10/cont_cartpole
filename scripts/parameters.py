@@ -183,7 +183,7 @@ def ident(a):
 	return tn(a)
 
 def clip_action(a):
-	return np.clip(a, -1, 1)
+	return np.clip(a, -1+1e-8, 1-1e-8)
 
 # Convert from discrete to continuous actions through a dictionary mapping
 act_disc2cont = ActDisc2Cont({0: -1.00, 1:  1.00})
@@ -241,6 +241,25 @@ _para_pi_beta_dict = {
 		'b_non_linearity': {'type': 'str', 'default': 'relu'},
 		'b_hidden_layers': {'type': 'int', 'default': 1},
 		'b_hidden_dim'   : {'type': 'int', 'default': 20},
+
+		'ns': {'type': 'bool', 'default': True}
+	}
+}
+
+_para_pi_mlp_dict = {
+	'class': MlpPolicy,
+	'args' : {
+		'state_dim' : {'type': 'ref', 'key': 'state_dim' , 'subpath': ''},
+		'action_dim': {'type': 'ref', 'key': 'action_dim', 'subpath': ''},
+
+		'act_min'    : {'type': 'float', 'default': -1},
+		'act_max'    : {'type': 'float', 'default': 1},
+		'act_samples': {'type': 'int', 'default': 100},
+
+		'non_linearity'        : {'type': 'str', 'default': 'relu'},
+		'hidden_layers'        : {'type': 'int', 'default': 1},
+		'hidden_dim'           : {'type': 'int', 'default': 20},
+		'output_non_linearity' : {'type': 'str', 'default': 'sigmoid'}
 	}
 }
 
@@ -255,7 +274,8 @@ _para_pi_egreedy_dict = {
 _para_policies_reinforce_dict = {
 	'default' : _para_pi_beta_dict,
 	'gaussian': _para_pi_gaussian_dict,
-	'beta'    : _para_pi_beta_dict
+	'beta'    : _para_pi_beta_dict,
+	'mlp'     : _para_pi_mlp_dict
 }
 
 _para_policies_dqn_dict = {
@@ -320,7 +340,10 @@ _para_ag_reinforce_dict = {
 		'gamma'   : {'type': 'float', 'default': 0.99},
 
 		'baseline'     : {'type': 'bool', 'default': True},
-		'baseline_fun' : {'type': 'obj' , 'dict': _para_value_fun_s_dict}
+		'baseline_fun' : {'type': 'obj' , 'dict': _para_value_fun_s_dict},
+
+		'lr'   : {'type': 'float', 'default': 1e-4},
+		'bl_lr': {'type': 'float', 'default': 1e-4}
 	})
 }
 
@@ -340,7 +363,9 @@ _para_ag_dqn_dict = {
 		'gamma': {'type': 'float', 'default': 0.99},
 		'doubleQ': {'type': 'bool', 'default': True},
 
-		'batch_size' : {'type': 'int', 'default': 64}
+		'batch_size' : {'type': 'int', 'default': 64},
+
+		'lr': {'type': 'float', 'default': 1e-4},
 	})
 }
 

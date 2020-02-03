@@ -10,9 +10,9 @@ from value_functions import *
 from policies import *
 
 class REINFORCE:
-	def __init__(self, policy, action_fun, state_dim, action_dim, gamma, baseline=False, baseline_fun = None):
+	def __init__(self, policy, action_fun, state_dim, action_dim, gamma, baseline=False, baseline_fun = None, lr=1e-4, bl_lr=1e-4):
 
-		self.baseline_fun = baseline_fun
+
 		self._pi = policy
 		self._action_fun = action_fun
 
@@ -20,12 +20,11 @@ class REINFORCE:
 		self._action_dim = action_dim
 
 		self._baseline = baseline
+		self.baseline_fun = baseline_fun
+		self._bl_learning_rate = bl_lr
 
 		self._gamma = gamma
-
-		self._create_model()
-
-	def _create_model(self):
+		self._learning_rate = lr
 
 		if torch.cuda.is_available():
 			self.baseline_fun.cuda()
@@ -35,10 +34,11 @@ class REINFORCE:
 
 		# Optimizers and loss function
 		if self.baseline_fun is not None and self._baseline:
-			self._V_optimizer = optim.Adam(self.baseline_fun.parameters(), lr=0.0001)
-			self._loss_function = nn.MSELoss()
+			self._bl_optimizer = optim.Adam(self.baseline_fun.parameters(), lr=self._bl_learning_rate)
+			self._bl_loss_function = nn.MSELoss()
 
-		self._pi_optimizer = optim.Adam(self._pi.parameters(), lr=0.0001)
+		self._pi_optimizer = optim.Adam(self._pi.parameters(), lr=self._learning_rate)
+
 
 	def _get_action(self, s, deterministic=False):
 
@@ -59,7 +59,7 @@ class REINFORCE:
 			total_r = 0
 			for t in range(time_steps):
 				a = self._get_action(s)
-				ns, r, d, _ = env.step(self._action_fun.act2env(a))
+				ns, r, d, _ = env.step(tn(self._action_fun.act2env(a)))
 
 				stats.episode_rewards[e] += r
 				stats.episode_lengths[e] = t
@@ -73,32 +73,46 @@ class REINFORCE:
 				s = ns
 
 
+			gamma_t = 1
 			for t in range(len(episode)):
 				# Find the first occurance of the state in the episode
 				s, a, r = episode[t]
 
 				G = 0
-				for k in range(t + 1, len(episode)):
+				gamma_kt = 1
+				for k in range(t , len(episode)):
+					gamma_kt = gamma_kt * self._gamma
 					_, _, r_k = episode[k]
-					G = G + (self._gamma ** (k - t - 1)) * r_k
+					G = G + (gamma_kt) * r_k
 
 				G = float(G)
 
+				p = self._pi(s, a)
+
+				# For Numerical Stability, in order to not get probabilities higher than one (e.g. delta distribution)
+				# and to not return a probability equal to 0 because of the log in the score_function
+				eps = 1e-8
+				p = p.clamp(eps, 1)
+
+				log_p = torch.log(p)
+
+				gamma_t = gamma_t * self._gamma
+
 				if self._baseline:
-					V = self.baseline_fun(s)
-					delta = G - V
+					bl = self.baseline_fun(s)
+					delta = G - bl
 
-					v_loss = self._loss_function(G, self.baseline_fun(s))
+					bl_loss = self._bl_loss_function(self.baseline_fun(s), tt([G]))
 
-					self._V_optimizer.zero_grad()
-					v_loss.backward()
-					self._V_optimizer.step()
+					self._bl_optimizer.zero_grad()
+					bl_loss.backward()
+					self._bl_optimizer.step()
 
-					score_fun =  - ((self._gamma ** t) * delta) * torch.log(self._pi(s, a))
+					score_fun = torch.mean(- (gamma_t * delta) * log_p)
 				else:
-					score_fun = - ((self._gamma ** t) * G) * torch.log(self._pi(s, a))
+					score_fun = torch.mean(- (gamma_t * G) * log_p)
 
-				stats.episode_loss[e] += score_fun[0].item()
+				stats.episode_loss[e] += score_fun.item()
 
 				self._pi_optimizer.zero_grad()
 				score_fun.backward()

@@ -34,7 +34,7 @@ def test_agent(env, agent, episodes=5, time_steps=500, initial_state=None, initi
 				env.render()
 
 			a = agent.get_action(s, deterministic=True)
-			s, r, d, _ = env.step(a)
+			s, r, d, _ = env.step(tn(a))
 
 			stats.episode_rewards[e] += r
 			stats.episode_lengths[e] = t

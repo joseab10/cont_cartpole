@@ -28,11 +28,6 @@ class GaussPolicy(nn.Module):
 		self._var_hidden_layers = var_hidden_layers
 		self._var_hidden_dim    = var_hidden_dim
 
-		self._create_models()
-
-
-	def _create_models(self):
-
 		self._mu_fa = MLP(self._state_dim, self._action_dim, hidden_dim=self._mean_hidden_layers,
 						  hidden_non_linearity=self._mean_non_linearity, hidden_layers=self._mean_hidden_layers)
 		self._sigma_fa = MLP(self._state_dim, self._action_dim, hidden_dim=self._var_hidden_dim,
@@ -81,17 +76,22 @@ class GaussPolicy(nn.Module):
 		self._sigma_fa.reset_parameters()
 		self._output_layer.reset_parameters()
 
+		if hasattr(self, '_p'):
+			self.__delattr__('_p')
+
 
 class BetaPolicy(nn.Module):
 	def __init__(self, state_dim, action_dim=1, act_min=0, act_max = 1,
 				 a_non_linearity=F.relu, a_hidden_layers=1, a_hidden_dim=20,
-				 b_non_linearity=F.relu, b_hidden_layers=1, b_hidden_dim=20):
+				 b_non_linearity=F.relu, b_hidden_layers=1, b_hidden_dim=20, ns=True):
 
 		super(BetaPolicy, self).__init__()
 
 		if not act_min < act_max:
 			raise ValueError("The action range is not properly defined: act_min < act_max")
 
+		self._act_min = act_min
+		self._act_max = act_max
 		# Linear transformation from [act_min, act_max] to [0, 1] where the Beta Distribution is defined
 		self._action_m = 1 / (act_max - act_min)
 		self._action_b = - act_min * self._action_m
@@ -107,9 +107,7 @@ class BetaPolicy(nn.Module):
 		self._b_hidden_layers = b_hidden_layers
 		self._b_hidden_dim    = b_hidden_dim
 
-		self._create_models()
-
-	def _create_models(self):
+		self._numerically_stable = ns
 
 		# Use softplus to force alpha and beta to be >0
 		self._alpha_fa = MLP(self._state_dim, self._action_dim, output_non_linearity=F.softplus,
@@ -128,9 +126,17 @@ class BetaPolicy(nn.Module):
 
 		# Linearly transforms a continuous action from [act_min, act_max] to [0, 1] where the Beta PDF is defined
 		transformed_a = self._action_m * a + self._action_b
+		transformed_a = torch.clamp(transformed_a, 0, 1)
 
 		alpha = self._alpha_fa(s)
 		beta  = self._beta_fa(s)
+
+		if self._numerically_stable:
+			# Avoid alpha, beta < 1 so the gradient does not go to infinity!
+			# We loose deterministic and bimodal PDFs, but it's a price we are willing to pay
+			alpha = alpha + 1
+			beta  = beta + 1
+
 		self._alpha = alpha
 		self._beta  = beta
 
@@ -167,6 +173,7 @@ class BetaPolicy(nn.Module):
 
 		# Transform action back to [act_min, act_max] interval
 		a = (a - self._action_b) / self._action_m
+		a = a.clip(self._act_min, self._act_max)
 
 		return a
 
@@ -175,6 +182,88 @@ class BetaPolicy(nn.Module):
 		self._alpha_fa.reset_parameters()
 		self._beta_fa.reset_parameters()
 		self._output_layer.reset_parameters()
+
+
+class MlpPolicy(nn.Module):
+	def __init__(self, state_dim, action_dim=1, act_min=0, act_max=1, act_samples=100,
+				 non_linearity=F.relu, hidden_layers=1, hidden_dim=20, output_non_linearity=F.sigmoid):
+
+		super(MlpPolicy, self).__init__()
+
+		self._state_dim = state_dim
+		self._action_dim = action_dim
+
+		if not act_min < act_max:
+			raise ValueError("The action range is not properly defined: act_min < act_max")
+
+		self._act_min = act_min
+		self._act_max = act_max
+		self._act_samples = act_samples
+
+		self._non_linearity     = non_linearity
+		self._hidden_layers     = hidden_layers
+		self._hidden_dim        = hidden_dim
+		self._out_non_linearity = output_non_linearity
+
+		self._fa = MLP(self._state_dim + self._action_dim, 1, self._out_non_linearity, self._hidden_dim,
+					   self._non_linearity, self._hidden_layers)
+
+
+	def forward(self, s, a):
+
+		s = tt(s)
+		a = tt(a)
+
+		if len(s.shape) == 1:
+			x = torch.cat((s, a))
+		else:
+			x = torch.cat((s, a), dim=1)
+
+		p = self._fa(x)
+
+		return p
+
+	def get_action(self, s, deterministic=False):
+
+		if self._action_dim > 1:
+			possible_actions = np.zeros((self._action_dim, self._act_samples))
+
+			for i in range(self._act_samples):
+				possible_actions[:,i] = np.linspace(self._act_min[:,i], self._act_max[:,i], self._act_samples)
+
+		else:
+			possible_actions = np.linspace(self._act_min, self._act_max, self._act_samples).reshape((self._act_samples, 1))
+
+		s = s.reshape((1, self._state_dim))
+		s = np.repeat(s, self._act_samples, axis=0)
+
+		p_pos_actions = tn(self.forward(s, tt(possible_actions)))
+
+		if deterministic:
+			if self._action_dim > 1:
+				a_index = np.argmax(np.mean(p_pos_actions, axis=0))
+			else:
+				a_index = np.argmax(p_pos_actions)
+
+			a = possible_actions[a_index]
+
+		else:
+			if self._action_dim > 1:
+				axis = 1
+			else:
+				axis = 0
+
+			p_means = np.mean(p_pos_actions, axis=axis)
+			p_vars  = np.var(p_pos_actions, axis=axis)
+
+			a = np.random.normal(p_means, p_vars, self._action_dim)
+
+
+
+		return a
+
+	def reset_parameters(self):
+		self._fa.reset_parameters()
 
 
 class EpsilonGreedyPolicy:

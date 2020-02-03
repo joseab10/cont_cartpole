@@ -17,15 +17,15 @@ if __name__ == "__main__":
 
 	parser = argparse.ArgumentParser()
 
-	parser.add_argument('--file', action='store', default=''        , help='Path to the model file.', type=str)
+	parser.add_argument('--file', action='store'  , default=''    , help='Path to the model file.', type=str)
 
-	parser.add_argument('--ep'    , action='store'     , default=5    , help='Number of test episodes.', type=int)
-	parser.add_argument('--ts'    , action='store'     , default=500  , help='Time steps per episode.', type=int)
-	parser.add_argument('--inist' , action='store'     , default='0'  , help='Initial State.', type=str)
-	parser.add_argument('--inirnd', action='store'     , default='0'  , help='Initial Noise.', type=str)
-	parser.add_argument('--rew'   , action='store'     , default='0'  , help='Reward Function.', type=str)
+	parser.add_argument('--ep'    , action='store', default=5     , help='Number of test episodes.', type=int)
+	parser.add_argument('--ts'    , action='store', default=500   , help='Time steps per episode.', type=int)
+	parser.add_argument('--inist' , action='store', default='none', help='Initial State.', type=str)
+	parser.add_argument('--inirnd', action='store', default='none', help='Initial Noise.', type=str)
+	parser.add_argument('--rew'   , action='store', default='none', help='Reward Function.', type=str)
 
-	parser.add_argument('--smw'   , action='store'     , default=10   , help='Smoothing window', type=int)
+	parser.add_argument('--smw'   , action='store', default=10    , help='Smoothing window', type=int)
 
 	args = parser.parse_args()
 

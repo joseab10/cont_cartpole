@@ -51,7 +51,8 @@ def tn(value):
 	if not isinstance(value, np.ndarray):
 
 		if isinstance(value, torch.Tensor):
-			value = value.detach().numpy()
+			value = value.detach()
+			value = value.numpy()
 
 		else:
 			value = np.array(value)
@@ -116,10 +117,16 @@ def plot_stats(values, dir='', experiment='', run_type='', x_varname='', plot_ag
 	# Plot individual runs
 	if plot_runs:
 		for i in range(values.shape[0]):
-			if smoothing_window > 3 * values.shape[1]:
-				values = pd.Series(values[i, :]).rolling(smoothing_window, min_periods=smoothing_window).mean()
 
-			plt.plot(x_values, values[i,:], label='Run {}'.format(i + 1), linewidth=0.25)
+			if len(values.shape) == 1:
+				run_values = values[i]
+			else:
+				run_values = values[i, :]
+
+			if smoothing_window > 3 * values.shape[1]:
+				run_values = pd.Series(run_values).rolling(smoothing_window, min_periods=smoothing_window).mean()
+
+			plt.plot(x_values, run_values, label='Run {}'.format(i + 1), linewidth=0.25)
 
 	# Plot Information
 	plt.xlabel("Episode")
@@ -130,7 +137,7 @@ def plot_stats(values, dir='', experiment='', run_type='', x_varname='', plot_ag
 	# Save Plot as png
 	if save:
 		mkdir(dir)
-		fig.savefig('{}plot{}_ep_{}_{}.png'.format(dir, experiment, x_varname.lower() + 's', timestamp()))
+		fig.savefig('{}plot{}_ep_{}_{}.png'.format(dir, experiment, x_varname.lower(), timestamp()))
 
 	if show:
 		plt.show(fig)

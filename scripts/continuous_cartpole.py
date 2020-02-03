@@ -55,6 +55,8 @@ class ContinuousCartPoleEnv(gym.Env):
         return [seed]
 
     def step(self, action):
+        if not self.action_space.contains(action):
+            print('caca')
         assert self.action_space.contains(action), "%r (%s) invalid"%(action, type(action))
         state = self.state
         x, x_dot, theta, theta_dot = state
