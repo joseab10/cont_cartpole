@@ -363,6 +363,7 @@ _para_ag_dqn_dict = {
 		'gamma': {'type': 'float', 'default': 0.99},
 		'doubleQ': {'type': 'bool', 'default': True},
 
+		'max_buffer_size': {'type': 'int', 'default': 1e6},
 		'batch_size' : {'type': 'int', 'default': 64},
 
 		'lr': {'type': 'float', 'default': 1e-4},

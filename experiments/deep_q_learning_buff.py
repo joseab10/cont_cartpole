@@ -1,3 +1,7 @@
+# Added to be able to find python files outside of cwd
+import sys
+sys.path.append('../scripts')
+
 import numpy as np
 
 import torch
@@ -189,3 +193,155 @@ class DQN:
 		self._q.reset_parameters()
 		self._q_target.reset_parameters()
 		self._replay_buffer = ReplayBuffer(self._rbuffer_max_size)
+
+
+
+if __name__ == "__main__":
+
+	# Imports for training
+	from policies import EpsilonGreedyPolicy
+	from value_functions import StateActionValueFunction
+	from action_functions import ActDisc2Cont
+	from continuous_cartpole import ContinuousCartPoleEnv
+	from train_agent import test_agent
+	import torch.nn.functional as F
+	import pickle
+
+
+
+
+
+	model_dir = '../save/models'
+	plt_dir   = '../save/plots'
+	data_dir  = '../save/stats'
+
+	file_name = 'exp_dqn_nobuff'
+
+	show = False
+
+	# HyperParameters
+
+	desc = 'DQN without Replay Buffer'
+	runs = 5
+	episodes = 5000
+	time_steps = 300
+	test_episodes = 10
+
+	state_dim = 4
+	action_dim = 2
+
+	q_hidden_layers = 1
+	q_hidden_dim    = 20
+
+	epsilon = 0.2
+
+	gamma = 0.99
+	doubleQ = True # Run doubleQ-DQN sampling from Q_target and bootstraping from Q
+
+	max_buffer_size = 1e6
+	batch_size = 64
+
+	lr = 1e-4
+
+	act_fun = ActDisc2Cont({0: -1.00, 1: 1.00})
+
+	init_state = None
+	init_noise = None
+
+
+	def informative_reward(cart_pole):
+
+		cos_pow = 3
+		max_pts = 100
+
+		if cart_pole.state[0] < -cart_pole.x_threshold or cart_pole.state[0] > cart_pole.x_threshold:
+			return -max_pts
+		else:
+			return (np.cos(cart_pole.state[2])**cos_pow)*(max_pts/(2 * time_steps))
+
+	reward_fun = informative_reward
+	reward_fun = None  # Sparse Reward Function
+
+
+
+	# Objects
+	Q = StateActionValueFunction(state_dim, action_dim, non_linearity=F.relu, hidden_layers=q_hidden_layers,
+								 hidden_dim=q_hidden_dim)
+	Q_target = StateActionValueFunction(state_dim, action_dim, non_linearity=F.relu, hidden_layers=q_hidden_layers,
+										hidden_dim=q_hidden_dim)
+
+
+	policy = EpsilonGreedyPolicy(epsilon=epsilon, value_function=Q)
+
+
+	agent = DQN(policy, act_fun, Q, Q_target, action_dim, action_dim, gamma, doubleQ, max_buffer_size, batch_size, lr)
+
+
+	print_header(1, desc)
+
+	run_train_stats = []
+	run_test_stats = []
+
+	for run in range(runs):
+		print_header(2, 'RUN {}'.format(run + 1))
+		print_header(3, 'Training')
+
+		# Training
+		env = ContinuousCartPoleEnv(reward_function=reward_fun)
+
+		state_dim = env.observation_space.shape[0]
+		action_dim = env.action_space.shape[0]
+
+		# Clear weights
+		agent.reset_parameters()
+
+		# Train agent...
+		stats = agent.train(env, episodes, time_steps, initial_state=init_state, initial_noise=init_noise)
+		# ... and append statistics to list
+		run_train_stats.append(stats)
+
+		# Save agent checkpoint
+		exp_model_dir = model_dir + '/' + file_name
+		mkdir(exp_model_dir)
+		with open('{}/model_{}_run_{}_{}.pkl'.format(exp_model_dir, file_name, run + 1, timestamp()),
+				  'wb') as f:
+			pickle.dump(agent, f)
+
+		# Run (deterministic) tests on the trained agent and save the statistics
+		test_stats = test_agent(env, agent, episodes=test_episodes, time_steps=time_steps,
+								initial_state=init_state, initial_noise=init_noise, render=show)
+		run_test_stats.append(test_stats)
+
+	# Concatenate stats for all runs ...
+	train_rewards = []
+	train_lengths = []
+	train_losses = []
+	test_rewards = []
+	test_lengths = []
+
+	for r in range(runs):
+		train_rewards.append(run_train_stats[r].episode_rewards)
+		train_lengths.append(run_train_stats[r].episode_lengths)
+		train_losses.append(run_train_stats[r].episode_loss)
+		test_rewards.append(run_test_stats[r].episode_rewards)
+		test_lengths.append(run_test_stats[r].episode_lengths)
+
+	train_rewards = np.array(train_rewards)
+	train_lengths = np.array(train_lengths)
+	train_losses = np.array(train_losses)
+	test_rewards = np.array(test_rewards)
+	test_lengths = np.array(test_lengths)
+
+	# ... and store them in a dictionary
+	plot_stats = [
+		{'run': 'train', 'stats': {'rewards': train_rewards, 'lengths': train_lengths, 'losses': train_losses}},
+		{'run': 'test', 'stats': {'rewards': test_rewards, 'lengths': test_lengths}}]
+
+	# Save Statistics
+	exp_stats_dir = data_dir + '/' + file_name
+	mkdir(exp_stats_dir)
+	with open('{}/stats_{}_{}.pkl'.format(exp_stats_dir, file_name, timestamp()), 'wb') as f:
+		pickle.dump(plot_stats, f)
+
+	# Plot Statistics
+	plot_run_stats(plot_stats, dir=plt_dir, experiment=file_name, show=show)
