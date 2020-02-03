@@ -6,9 +6,7 @@ import torch.optim as optim
 
 from collections import namedtuple
 
-from utils import *
-
-from value_functions import *
+from utils import tn, EpisodeStats, print_stats, tt
 
 
 class ReplayBuffer:
