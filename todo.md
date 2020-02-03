@@ -8,10 +8,15 @@
 ## Plan of the week:
 
 
-- [ ] DQN single FA without Buffer
+- [x] DQN single FA without Buffer
+    - JSON file for this case: TODO_ADD_NAME
+    - Just run Experiments with Buffer Size of 1 and Batchsize of 1
 - [ ] DQN single FA with Buffer
+    - JSON file for this case: TODO_ADD_NAME
 - [ ] DDQN single FA without Buffer
+    - JSON file for this case: TODO_ADD_NAME
 - [ ] DDQN single FA with Buffer
+    - JSON file for this case: TODO_ADD_NAME
 
 
 
