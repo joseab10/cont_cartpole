@@ -1,21 +1,8 @@
-from continuous_cartpole import ContinuousCartPoleEnv, angle_normalize
-
-from continuous_reinforce import *
-from deep_q_learning import *
-
-from policies import *
-from action_functions import *
-
-from utils import *
-
+import numpy as np
 import pickle
 
-import numpy as np
-
-from parameters import load_parameters
-
-import argparse
-
+from continuous_cartpole import ContinuousCartPoleEnv
+from utils import mkdir, timestamp, EpisodeStats, print_header, print_stats, plot_run_stats, tn, tt
 
 
 def test_agent(env, agent, episodes=5, time_steps=500, initial_state=None, initial_noise=None, render=True):
@@ -52,120 +39,86 @@ def test_agent(env, agent, episodes=5, time_steps=500, initial_state=None, initi
 	return stats
 
 
+def train_agent(agent, desc='Agent1', file_name='agent1', runs=5, episodes=5000, time_steps=300, test_episodes=10,
+				init_state=None, init_noise=None, reward_fun=None):
+
+	print_header(1, desc)
+
+	run_train_stats = []
+	run_test_stats = []
+
+	for run in range(runs):
+		print_header(2, 'RUN {}'.format(run + 1))
+		print_header(3, 'Training')
+
+		# Training
+		env = ContinuousCartPoleEnv(reward_function=reward_fun)
+
+		state_dim = env.observation_space.shape[0]
+		action_dim = env.action_space.shape[0]
+
+		# Clear weights
+		agent.reset_parameters()
+
+		# Train agent...
+		stats = agent.train(env, episodes, time_steps, initial_state=init_state, initial_noise=init_noise)
+		# ... and append statistics to list
+		run_train_stats.append(stats)
+
+		# Save agent checkpoint
+		exp_model_dir = model_dir + '/' + file_name
+		mkdir(exp_model_dir)
+		with open('{}/model_{}_run_{}_{}.pkl'.format(exp_model_dir, file_name, run + 1, timestamp()),
+					'wb') as f:
+			pickle.dump(agent, f)
+
+		# Run (deterministic) tests on the trained agent and save the statistics
+		test_stats = test_agent(env, agent, episodes=test_episodes, time_steps=time_steps,
+								initial_state=init_state, initial_noise=init_noise, render=show)
+		run_test_stats.append(test_stats)
+
+	# Concatenate stats for all runs ...
+	train_rewards = []
+	train_lengths = []
+	train_losses = []
+	test_rewards = []
+	test_lengths = []
+
+	for r in range(runs):
+		train_rewards.append(run_train_stats[r].episode_rewards)
+		train_lengths.append(run_train_stats[r].episode_lengths)
+		train_losses.append(run_train_stats[r].episode_loss)
+		test_rewards.append(run_test_stats[r].episode_rewards)
+		test_lengths.append(run_test_stats[r].episode_lengths)
+
+	train_rewards = np.array(train_rewards)
+	train_lengths = np.array(train_lengths)
+	train_losses = np.array(train_losses)
+	test_rewards = np.array(test_rewards)
+	test_lengths = np.array(test_lengths)
+
+	# ... and store them in a dictionary
+	plot_stats = [
+		{'run': 'train', 'stats': {'rewards': train_rewards, 'lengths': train_lengths, 'losses': train_losses}},
+		{'run': 'test', 'stats': {'rewards': test_rewards, 'lengths': test_lengths}}]
+
+	# Save Statistics
+	exp_stats_dir = data_dir + '/' + file_name
+	mkdir(exp_stats_dir)
+	with open('{}/stats_{}_{}.pkl'.format(exp_stats_dir, file_name, timestamp()), 'wb') as f:
+		pickle.dump(plot_stats, f)
+
+	# Plot Statistics
+	plot_run_stats(plot_stats, dir=plt_dir, experiment=file_name, show=show)
 
 
+def run_experiments(experiments):
 
-if __name__ == "__main__":
-
-	parser = argparse.ArgumentParser()
-
-	parser.add_argument('--exp', action='store', default='experiments_example.json', help='Path to the experiments file.', type=str)
-
-	args = parser.parse_args()
-
-	# Load Parameters and Experiments from JSON File
-	parameters = load_parameters(args.exp)
-
-	global_params = parameters['global_params']
-
-	model_dir = global_params['model_dir']
-	plt_dir = global_params['plt_dir']
-	data_dir = global_params['data_dir']
-
-	mkdir(model_dir)
-	mkdir(plt_dir)
-	mkdir(data_dir)
-
-	show = global_params['show']
-
-	# Run each experiment in the parameters file
-	for experiment in parameters['experiments']:
+	for experiment in experiments['experiments']:
 
 		if experiment['exe']:
 
-			# Experiment Parameters and objects
-			desc = experiment['desc']
-			runs = experiment['runs']
-			episodes = experiment['episodes']
-			time_steps = experiment['time_steps']
-			test_episodes = experiment['test_episodes']
+			# Remove the 'exe' key from the dictionary and pass all the rest as arguments to the train_agent function
+			xp = {x: experiment[x] for x in experiment if x not in ['exe']}
 
-			init_state = experiment['initial_state']
-			init_noise = experiment['initial_noise']
-
-			reward_fun = experiment['reward_function']
-
-			agent = experiment['agent']
-
-			file_name = experiment['file_name']
-
-
-			print_header(1, desc)
-
-			run_train_stats = []
-			run_test_stats = []
-
-			for run in range(runs):
-
-				print_header(2, 'RUN {}'.format(run + 1))
-				print_header(3, 'Training')
-
-				# Training
-				env = ContinuousCartPoleEnv(reward_function=reward_fun)
-
-				state_dim = env.observation_space.shape[0]
-				action_dim = env.action_space.shape[0]
-
-
-				# Clear weights
-				agent.reset_parameters()
-
-				# Train agent...
-				stats = agent.train(env, episodes, time_steps, initial_state=init_state, initial_noise=init_noise)
-				# ... and append statistics to list
-				run_train_stats.append(stats)
-
-				# Save agent checkpoint
-				exp_model_dir = model_dir + '/' + file_name
-				mkdir(exp_model_dir)
-				with open('{}/model_{}_run_{}_{}.pkl'.format(exp_model_dir, file_name, run + 1, timestamp()), 'wb') as f:
-					pickle.dump(agent, f)
-
-				# Run (deterministic) tests on the trained agent and save the statistics
-				test_stats = test_agent(env, agent, episodes=test_episodes, time_steps=time_steps,
-										initial_state=init_state, initial_noise=init_noise, render=show)
-				run_test_stats.append(test_stats)
-
-
-			# Concatenate stats for all runs ...
-			train_rewards = []
-			train_lengths = []
-			train_losses  = []
-			test_rewards  = []
-			test_lengths  = []
-
-			for r in range(runs):
-				train_rewards.append(run_train_stats[r].episode_rewards)
-				train_lengths.append(run_train_stats[r].episode_lengths)
-				train_losses.append(run_train_stats[r].episode_loss)
-				test_rewards.append(run_test_stats[r].episode_rewards)
-				test_lengths.append(run_test_stats[r].episode_lengths)
-
-			train_rewards = np.array(train_rewards)
-			train_lengths = np.array(train_lengths)
-			train_losses  = np.array(train_losses)
-			test_rewards  = np.array(test_rewards)
-			test_lengths  = np.array(test_lengths)
-
-			# ... and store them in a dictionary
-			plot_stats=[{'run': 'train', 'stats': {'rewards': train_rewards, 'lengths': train_lengths, 'losses': train_losses}},
-						{'run': 'test' , 'stats': {'rewards': test_rewards , 'lengths': test_lengths}}]
-
-			# Save Statistics
-			exp_stats_dir = data_dir + '/' + file_name
-			mkdir(exp_stats_dir)
-			with open('{}/stats_{}_{}.pkl'.format(exp_stats_dir, file_name, timestamp()), 'wb') as f:
-				pickle.dump(plot_stats, f)
-
-			# Plot Statistics
-			plot_run_stats(plot_stats, dir=plt_dir, experiment=file_name, show=show)
+			train_agent(**xp)
