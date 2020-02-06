@@ -268,9 +268,13 @@ class MlpPolicy(nn.Module):
 
 class EpsilonGreedyPolicy:
 
-	def __init__(self, epsilon, value_function):
-		self.epsilon = epsilon
+	def __init__(self, schedule, value_function):
+		self.epsilon = schedule
 		self._value_function = value_function
+
+
+	def step(self):
+		self.epsilon.step()
 
 	def __call__(self, s):
 		# Computes the probabilities of taking each action,
@@ -280,9 +284,11 @@ class EpsilonGreedyPolicy:
 
 		nA = len(value)
 
-		p = np.ones(nA, dtype=float) * self.epsilon / (nA - 1)
+		epsilon = self.epsilon()
+
+		p = np.ones(nA, dtype=float) * epsilon / (nA - 1)
 		best_action = np.argmax(value)
-		p[best_action] = 1.0 - self.epsilon
+		p[best_action] = 1.0 - epsilon
 
 		return p
 
@@ -301,3 +307,6 @@ class EpsilonGreedyPolicy:
 			a = np.random.choice(action_indices, p=p)
 
 		return a
+
+	def reset_parameters(self):
+		self.epsilon.reset_parameters()
