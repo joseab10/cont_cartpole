@@ -1,6 +1,6 @@
 # Added to be able to find python files outside of cwd
 import sys
-sys.path.append('../scripts')
+sys.path.append('../lib')
 
 import numpy as np
 
@@ -127,7 +127,7 @@ if __name__ == "__main__":
 	from value_functions import StateActionValueFunction
 	from action_functions import ActDisc2Cont
 	from continuous_cartpole import ContinuousCartPoleEnv
-	from train_agent import test_agent
+	from train import test_agent
 	import torch.nn.functional as F
 	import pickle
 
