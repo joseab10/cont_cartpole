@@ -26,6 +26,8 @@
 				"initial_state": "none",
 				"initial_noise": "none",
 
+				"reward_function": {"class":  "pos_sparse"},
+
 				"agent": {
 					"class": "dqn",
 					"args" : {
@@ -53,7 +55,18 @@
 						"policy": {
 							"class": "egreedy",
 							"args" : {
-								"epsilon"        : 0.20
+								"schedule": {
+									"class": "schedule",
+									"args" : {
+										"x0" : 100,
+										"x1" : 1200,
+										"y0" : 0.9,
+										"y1" : 0.2,
+										"schedule_function": "exp",
+										"cosine_annealing": false,
+										"annealing_cycles": 5
+									}
+								}
 							}
 						},
 
@@ -61,6 +74,7 @@
 
 						"doubleQ": false,
 
+						"replay_buffer" : false,
 						"max_buffer_size": 1,
 						"batch_size" : 1
 					}
