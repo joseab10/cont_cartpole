@@ -1,12 +1,12 @@
 import sys
+# Added to be able to find python files outside of cwd
+sys.path.append('../lib')
 
 import pickle
 
 from utils import *
 import argparse
 
-# Added to be able to find python files outside of cwd
-sys.path.append('../lib')
 
 def_dir = '../save/plots'
 def_exp = 'plot_stats'
