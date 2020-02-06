@@ -5,8 +5,6 @@ from parameters import parse_reward_function, parse_init_noise, parse_init_state
 
 from train_agent import test_agent, plot_run_stats
 
-import numpy as np
-
 import argparse
 
 
@@ -29,11 +27,9 @@ if __name__ == "__main__":
 
 	args = parser.parse_args()
 
-
 	reward_function = parse_reward_function(args.rew, {'time_steps': args.ts})
 	initial_state = parse_init_state(args.inist)
 	initial_noise = parse_init_noise(args.inirnd)
-
 
 	env = ContinuousCartPoleEnv(reward_function=reward_function)
 
@@ -43,8 +39,8 @@ if __name__ == "__main__":
 	stats = test_agent(env, agent, episodes=args.ep, time_steps=args.ts, initial_state=initial_state,
 					   initial_noise=initial_noise, render=True)
 
-	plt_stats = [{'run': 'test', 'stats': {'rewards': stats.episode_rewards.reshape([1,args.ep]),
-											'lengths': stats.episode_lengths.reshape([1,args.ep])}}]
+	plt_stats = [{'run': 'test', 'stats': {'rewards': stats.episode_rewards.reshape([1, args.ep]),
+											'lengths': stats.episode_lengths.reshape([1, args.ep])}}]
 
-	plot_run_stats(plt_stats, plot_runs=True, plot_agg=False, smoothing_window=args.smw,
-					   show=True, save=False)
+	plot_run_stats(plt_stats, plot_runs=True, plot_agg=False, smth_wnd=args.smw,
+				   show=True, save=False)
