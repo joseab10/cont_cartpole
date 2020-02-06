@@ -41,7 +41,7 @@ def test_agent(env, agent, episodes=5, time_steps=500, initial_state=None, initi
 
 
 def train_agent(agent, desc='Agent1', file_name='agent1', runs=5, episodes=5000, time_steps=300, test_episodes=10,
-				init_state=None, init_noise=None, reward_fun=None,
+				init_state=None, init_noise=None,
 				model_dir='../save/models', data_dir='../save/stats', plt_dir='../save/plots',
 				show=False):
 
@@ -55,7 +55,7 @@ def train_agent(agent, desc='Agent1', file_name='agent1', runs=5, episodes=5000,
 		print_header(3, 'Training')
 
 		# Training
-		env = ContinuousCartPoleEnv(reward_function=reward_fun)
+		env = ContinuousCartPoleEnv(reward_function=agent.reward_fun)
 
 		# Clear weights
 		agent.reset_parameters()

@@ -8,10 +8,12 @@ from utils import EpisodeStats, tn, tt, print_stats
 
 class REINFORCE:
 	def __init__(self, policy, action_fun, state_dim, action_dim, gamma, baseline=False, baseline_fun=None,
-				 lr=1e-4, bl_lr=1e-4):
+				 reward_fun=None, lr=1e-4, bl_lr=1e-4):
 
 		self._pi = policy
 		self._action_fun = action_fun
+
+		self.reward_fun = reward_fun
 
 		self._state_dim  = state_dim
 		self._action_dim = action_dim

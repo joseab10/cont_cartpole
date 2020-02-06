@@ -86,7 +86,7 @@ def hard_update(target, source):
 
 
 class DQN:
-	def __init__(self, policy, action_fun, q, q_target, state_dim, action_dim, gamma, double_q=True,
+	def __init__(self, policy, action_fun, q, q_target, state_dim, action_dim, gamma, double_q=True, reward_fun=None,
 					replay_buffer=False, max_buffer_size=1e6, batch_size=64,
 					lr=1e-4):
 
@@ -95,6 +95,8 @@ class DQN:
 
 		self._pi = policy
 		self._action_fun = action_fun
+
+		self.reward_fun = reward_fun
 
 		self._doubleQ = double_q
 
