@@ -2,12 +2,13 @@ import numpy as np
 import pickle
 
 from continuous_cartpole import ContinuousCartPoleEnv
-from utils import mkdir, timestamp, EpisodeStats, print_header, print_stats, plot_run_stats, tn, tt
+from utils import mkdir, timestamp, EpisodeStats, print_header, print_stats, plot_run_stats, tn
 
 
 def test_agent(env, agent, episodes=5, time_steps=500, initial_state=None, initial_noise=None, render=True):
 
-	stats = EpisodeStats(episode_lengths=np.zeros(episodes), episode_rewards=np.zeros(episodes), episode_loss=np.zeros(episodes))
+	stats = EpisodeStats(episode_lengths=np.zeros(episodes), episode_rewards=np.zeros(episodes),
+						 episode_loss=np.zeros(episodes))
 
 	print_header(3, 'Testing')
 
@@ -40,7 +41,9 @@ def test_agent(env, agent, episodes=5, time_steps=500, initial_state=None, initi
 
 
 def train_agent(agent, desc='Agent1', file_name='agent1', runs=5, episodes=5000, time_steps=300, test_episodes=10,
-				init_state=None, init_noise=None, reward_fun=None):
+				init_state=None, init_noise=None, reward_fun=None,
+				model_dir='../save/models', data_dir='../save/stats', plt_dir='../save/plots',
+				show=False):
 
 	print_header(1, desc)
 
@@ -53,9 +56,6 @@ def train_agent(agent, desc='Agent1', file_name='agent1', runs=5, episodes=5000,
 
 		# Training
 		env = ContinuousCartPoleEnv(reward_function=reward_fun)
-
-		state_dim = env.observation_space.shape[0]
-		action_dim = env.action_space.shape[0]
 
 		# Clear weights
 		agent.reset_parameters()
@@ -109,7 +109,7 @@ def train_agent(agent, desc='Agent1', file_name='agent1', runs=5, episodes=5000,
 		pickle.dump(plot_stats, f)
 
 	# Plot Statistics
-	plot_run_stats(plot_stats, dir=plt_dir, experiment=file_name, show=show)
+	plot_run_stats(plot_stats, path=plt_dir, experiment=file_name, show=show)
 
 
 def run_experiments(experiments):
