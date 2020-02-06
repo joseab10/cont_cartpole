@@ -1,18 +1,15 @@
 import sys
+# Added to be able to find python files outside of cwd
+sys.path.append('../lib')
 
 import pickle
-
-from continuous_cartpole import ContinuousCartPoleEnv
-
-from train import test_agent, plot_run_stats
-
 import argparse
 
 import reward_functions
+from continuous_cartpole import ContinuousCartPoleEnv
+from train import test_agent, plot_run_stats
 from init import initial_states, initial_noises
 
-# Added to be able to find python files outside of cwd
-sys.path.append('../lib')
 
 parser = argparse.ArgumentParser()
 
@@ -28,14 +25,14 @@ parser.add_argument('--smw'   , action='store', default=10    , help='Smoothing 
 
 args = parser.parse_args()
 
-reward_function = getattr(reward_functions, args.rew)
 initial_state = initial_states[args.inist]
 initial_noise = initial_noises[args.inirnd]
 
-env = ContinuousCartPoleEnv(reward_function=reward_function)
-
 with open(args.file, 'rb') as f:
 	agent = pickle.load(f)
+
+reward_function = agent.reward_fun
+env = ContinuousCartPoleEnv(reward_function=reward_function)
 
 stats = test_agent(env, agent, episodes=args.ep, time_steps=args.ts, initial_state=initial_state,
 				   initial_noise=initial_noise, render=True)
