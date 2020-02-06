@@ -28,6 +28,6 @@ if __name__ == "__main__":
 	with open(args.file, 'rb') as f:
 		stats = pickle.load(f)
 
-	plot_run_stats(stats, dir=args.dir, experiment=args.exp,
-				   plot_runs=args.runs, plot_agg=not args.nagg, smoothing_window=args.smw,
+	plot_run_stats(stats, path=args.dir, experiment=args.exp,
+				   plot_runs=args.runs, plot_agg=not args.nagg, smth_wnd=args.smw,
 				   show=not args.nosh, save=args.save)
