@@ -265,4 +265,4 @@ if __name__ == "__main__":
 		pickle.dump(plot_stats, f)
 
 	# Plot Statistics
-	plot_run_stats(plot_stats, dir=plt_dir, experiment=file_name, show=show)
+	plot_run_stats(plot_stats, path=plt_dir, experiment=file_name, show=show)
