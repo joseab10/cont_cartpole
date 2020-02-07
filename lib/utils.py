@@ -137,21 +137,32 @@ def plot_stats(values, path='', experiment='', run_type='', x_var_name='', plot_
 
 	x_values = np.arange(1, values.shape[1] + 1)
 
+	smoothen = True if 0 < 3 * smth_wnd < values.shape[1] else False
+
 	if plot_agg:
 		# means = np.mean(values, axis=0)
 		# std_dev = np.std(values, axis=0)
-		mins  = np.min(values, axis=0)
-		maxs  = np.max(values, axis=0)
-
 		medians = np.percentile(values, 50, axis=0)
 
+		ext_min  = np.min(values, axis=0)
+		ext_max  = np.max(values, axis=0)
+
+		iqr_25 = np.percentile(values, 25, axis=0)
+		iqr_75 = np.percentile(values, 75, axis=0)
+
+		if smoothen:
+			medians = pd.Series(medians).rolling(smth_wnd, min_periods=smth_wnd).mean()
+			ext_min = pd.Series(ext_min).rolling(smth_wnd, min_periods=smth_wnd).mean()
+			ext_max = pd.Series(ext_max).rolling(smth_wnd, min_periods=smth_wnd).mean()
+			iqr_25  = pd.Series(iqr_25).rolling(smth_wnd, min_periods=smth_wnd).mean()
+			iqr_75  = pd.Series(iqr_75).rolling(smth_wnd, min_periods=smth_wnd).mean()
+
 		# Plot Extreme Area
-		plt.fill_between(x_values, mins, maxs, alpha=0.125, label='Extremes')
+		plt.fill_between(x_values, ext_min, ext_max, alpha=0.125, label='Extremes')
 		# Plot Mean +- 1*Sigma Area
 		# plt.fill_between(x_values, means - std_dev, means + std_dev, alpha=0.25, label='1×σ')
 		# Plot IQR Area
-		plt.fill_between(x_values, np.percentile(values, 25, axis=0), np.percentile(values, 75, axis=0),
-						 alpha=0.35, label='IQR')
+		plt.fill_between(x_values, iqr_25, iqr_75, alpha=0.45, label='IQR')
 		# Plot Mean Curve
 		# plt.plot(x_values, means, '--', label='Mean')
 		# Plot Median Curve
@@ -166,7 +177,7 @@ def plot_stats(values, path='', experiment='', run_type='', x_var_name='', plot_
 			else:
 				run_values = values[i, :]
 
-			if smth_wnd > 3 * values.shape[1]:
+			if smoothen:
 				run_values = pd.Series(run_values).rolling(smth_wnd, min_periods=smth_wnd).mean()
 
 			plt.plot(x_values, run_values, label='Run {}'.format(i + 1), linewidth=0.25)
