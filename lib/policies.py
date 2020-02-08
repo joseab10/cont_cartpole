@@ -185,8 +185,9 @@ class BetaPolicy(nn.Module):
 
 
 class MlpPolicy(nn.Module):
-	def __init__(self, state_dim, action_dim=1, act_min=0, act_max=1, act_samples=100,
-				 non_linearity=F.relu, hidden_layers=1, hidden_dim=20, output_non_linearity=F.sigmoid):
+	def __init__(self, state_dim, action_dim=1, act_min=0, act_max=1,# act_samples=100,
+				 non_linearity=F.relu, hidden_layers=1, hidden_dim=20, output_non_linearity=None,
+				 noise=0.2, noise_clip=0.5):
 
 		super(MlpPolicy, self).__init__()
 
@@ -198,67 +199,31 @@ class MlpPolicy(nn.Module):
 
 		self._act_min = act_min
 		self._act_max = act_max
-		self._act_samples = act_samples
 
 		self._non_linearity     = non_linearity
 		self._hidden_layers     = hidden_layers
 		self._hidden_dim        = hidden_dim
 		self._out_non_linearity = output_non_linearity
 
-		self._fa = MLP(self._state_dim + self._action_dim, 1, self._out_non_linearity, self._hidden_dim,
+		self._noise = noise
+		self._noise_clip = noise_clip
+
+		self._fa = MLP(self._state_dim, self._action_dim, self._out_non_linearity, self._hidden_dim,
 					   self._non_linearity, self._hidden_layers)
 
 
-	def forward(self, s, a):
+	def forward(self, s):
 
-		s = tt(s)
-		a = tt(a)
-
-		if len(s.shape) == 1:
-			x = torch.cat((s, a))
-		else:
-			x = torch.cat((s, a), dim=1)
-
-		p = self._fa(x)
-
-		return p
+		return self._fa(tt(s))
 
 	def get_action(self, s, deterministic=False):
 
-		if self._action_dim > 1:
-			possible_actions = np.zeros((self._action_dim, self._act_samples))
+		a = self.forward(s)
 
-			for i in range(self._act_samples):
-				possible_actions[:,i] = np.linspace(self._act_min[:,i], self._act_max[:,i], self._act_samples)
+		if not deterministic:
+			a += (torch.randn_like(a) * self._noise).clamp(-self._noise_clip, self._noise_clip)
 
-		else:
-			possible_actions = np.linspace(self._act_min, self._act_max, self._act_samples).reshape((self._act_samples, 1))
-
-		s = s.reshape((1, self._state_dim))
-		s = np.repeat(s, self._act_samples, axis=0)
-
-		p_pos_actions = tn(self.forward(s, tt(possible_actions)))
-
-		if deterministic:
-			if self._action_dim > 1:
-				a_index = np.argmax(np.mean(p_pos_actions, axis=0))
-			else:
-				a_index = np.argmax(p_pos_actions)
-
-			a = possible_actions[a_index]
-
-		else:
-			if self._action_dim > 1:
-				axis = 1
-			else:
-				axis = 0
-
-			p_means = np.mean(p_pos_actions, axis=axis)
-			p_vars  = np.var(p_pos_actions, axis=axis)
-
-			a = np.random.normal(p_means, p_vars, self._action_dim)
-
-
+		a = a.clamp(self._act_min, self._act_max)
 
 		return a
 
