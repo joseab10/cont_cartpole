@@ -4,7 +4,7 @@ sys.path.append('../lib')
 
 import pickle
 
-from utils import *
+from utils import plot_run_stats
 import argparse
 
 
