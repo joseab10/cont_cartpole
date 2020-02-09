@@ -19,7 +19,7 @@ def hard_update(target, source):
 
 class DQN:
 	def __init__(self, policy, action_fun, q, q_target, state_dim, action_dim, gamma, double_q=True, reward_fun=None,
-					replay_buffer=False, max_buffer_size=1e6, batch_size=64,
+					replay_buffer=False, max_buffer_size=1e6, batch_size=64, tau=0.01,
 					lr=1e-4):
 
 		self._q = q
@@ -37,6 +37,7 @@ class DQN:
 			self._q_target.cuda()
 
 		self._gamma = gamma
+		self._tau = tau
 
 		self._state_dim  = state_dim
 		self._action_dim = action_dim
@@ -128,7 +129,7 @@ class DQN:
 				loss.backward()
 				self._q_optimizer.step()
 
-				soft_update(self._q_target, self._q, 0.01)
+				soft_update(self._q_target, self._q, self._tau)
 
 				if d:
 					break
