@@ -104,6 +104,73 @@ def print_stats(stats, extra_str=''):
 	print(msg.format(stats), extra_str)
 
 
+def plot_aggregate(values, label='', smth_wnd=50, plot_mean=False, plot_stdev=False, plot_med=True, plot_iqr=True,
+				   plot_ext=False):
+	"""
+	Plots aggregated data (Fills and lines) for the passed values
+	:param values:     (ndarray) 1D or 2D array containing the stats for a single variable (e.g. rewards) over
+	                               one or more runs
+	:param label:      (str)     Text to be prepended to the label of each curve
+	:param smth_wnd:   (int)     Running average window for smoothing the noisy individual run curves
+	:param plot_mean:  (bool)    Plot the mean curve over all runs
+	:param plot_stdev: (bool)    Plot the region of [mean - stdev, mean + stdev] over all runs
+	:param plot_med:   (bool)    Plot the median curve over all runs
+	:param plot_iqr:   (bool)    Plot the Inter-Quartal Region over all runs
+	:param plot_ext:   (bool)    Plot the extreme region [min, max] over all runs
+	:return:            None
+	"""
+	if label != '':
+		label += ' '
+
+	smoothen = True if 0 < 3 * smth_wnd < values.shape[1] else False
+
+	x_values = np.arange(1, values.shape[1] + 1)
+
+	means = np.mean(values, axis=0)
+	if smoothen:
+		means = pd.Series(means).rolling(smth_wnd, min_periods=smth_wnd).mean()
+
+	if plot_stdev:
+		std_dev = np.std(values, axis=0)
+
+		if smoothen:
+			std_dev = pd.Series(std_dev).rolling(smth_wnd, min_periods=smth_wnd).mean()
+
+		plt.fill_between(x_values, means - std_dev, means + std_dev, alpha=0.25, label=label + '1×σ')
+
+	if plot_mean:
+		plt.plot(x_values, means, '--', label=label + 'Mean')
+
+	if plot_iqr:
+		iqr_25 = np.percentile(values, 25, axis=0)
+		iqr_75 = np.percentile(values, 75, axis=0)
+
+		if smoothen:
+			iqr_25 = pd.Series(iqr_25).rolling(smth_wnd, min_periods=smth_wnd).mean()
+			iqr_75 = pd.Series(iqr_75).rolling(smth_wnd, min_periods=smth_wnd).mean()
+
+		plt.fill_between(x_values, iqr_25, iqr_75, alpha=0.45, label=label + 'IQR')
+
+	if plot_med:
+		medians = np.percentile(values, 50, axis=0)
+
+		if smoothen:
+			medians = pd.Series(medians).rolling(smth_wnd, min_periods=smth_wnd).mean()
+
+		plt.plot(x_values, medians, '--', label=label + 'Median', linewidth=1.5)
+
+	if plot_ext:
+		ext_min = np.min(values, axis=0)
+		ext_max = np.max(values, axis=0)
+
+		if smoothen:
+			ext_min = pd.Series(ext_min).rolling(smth_wnd, min_periods=smth_wnd).mean()
+			ext_max = pd.Series(ext_max).rolling(smth_wnd, min_periods=smth_wnd).mean()
+
+		plt.fill_between(x_values, ext_min, ext_max, alpha=0.125, label=label + 'Extremes')
+
+
+
 def plot_stats(values, path='', experiment='', run_type='', x_var_name='', plot_agg=True, plot_runs=True, smth_wnd=10,
 			   show=True, save=True):
 	""" Plots the statistics for a single variable over multiple runs.
@@ -140,33 +207,7 @@ def plot_stats(values, path='', experiment='', run_type='', x_var_name='', plot_
 	smoothen = True if 0 < 3 * smth_wnd < values.shape[1] else False
 
 	if plot_agg:
-		# means = np.mean(values, axis=0)
-		# std_dev = np.std(values, axis=0)
-		medians = np.percentile(values, 50, axis=0)
-
-		ext_min  = np.min(values, axis=0)
-		ext_max  = np.max(values, axis=0)
-
-		iqr_25 = np.percentile(values, 25, axis=0)
-		iqr_75 = np.percentile(values, 75, axis=0)
-
-		if smoothen:
-			medians = pd.Series(medians).rolling(smth_wnd, min_periods=smth_wnd).mean()
-			ext_min = pd.Series(ext_min).rolling(smth_wnd, min_periods=smth_wnd).mean()
-			ext_max = pd.Series(ext_max).rolling(smth_wnd, min_periods=smth_wnd).mean()
-			iqr_25  = pd.Series(iqr_25).rolling(smth_wnd, min_periods=smth_wnd).mean()
-			iqr_75  = pd.Series(iqr_75).rolling(smth_wnd, min_periods=smth_wnd).mean()
-
-		# Plot Extreme Area
-		plt.fill_between(x_values, ext_min, ext_max, alpha=0.125, label='Extremes')
-		# Plot Mean +- 1*Sigma Area
-		# plt.fill_between(x_values, means - std_dev, means + std_dev, alpha=0.25, label='1×σ')
-		# Plot IQR Area
-		plt.fill_between(x_values, iqr_25, iqr_75, alpha=0.45, label='IQR')
-		# Plot Mean Curve
-		# plt.plot(x_values, means, '--', label='Mean')
-		# Plot Median Curve
-		plt.plot(x_values, medians, '--', label='Median', linewidth=1.5)
+		plot_aggregate(values, smth_wnd=smth_wnd, plot_ext=True)
 
 	# Plot individual runs
 	if plot_runs:
