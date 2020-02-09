@@ -23,7 +23,7 @@ parser.add_argument('--exp' , action='store'     , default=def_exp, help='Experi
 
 parser.add_argument('--runs', action='store_true', default=False  , help='Plot individual runs.')
 parser.add_argument('--nagg', action='store_true', default=False  , help='Do not plot aggregate stats')
-parser.add_argument('--smw' , action='store'     , default=10     , help='Smoothing window'                    , type=int)
+parser.add_argument('--smw' , action='store'     , default=50     , help='Smoothing window'                    , type=int)
 
 args = parser.parse_args()
 
