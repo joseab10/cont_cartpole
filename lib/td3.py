@@ -106,7 +106,6 @@ class TD3:
 		for e in range(episodes):
 
 			s = env.reset(initial_state=initial_state, noise_amplitude=initial_noise)
-			total_r = 0
 
 			for t in range(time_steps):
 
@@ -115,8 +114,6 @@ class TD3:
 
 				stats.episode_rewards[e] += r
 				stats.episode_lengths[e] = t
-
-				total_r += r
 
 				self._steps += 1
 				self._replay_buffer.add_transition(s, a, ns, r, d)
@@ -168,6 +165,8 @@ class TD3:
 			pr_stats = {'steps': int(stats.episode_lengths[e] + 1), 'episode': e + 1, 'episodes': episodes,
 						'reward': stats.episode_rewards[e], 'loss': stats.episode_loss[e]}
 			print_stats(pr_stats)
+
+		return stats
 
 	def reset_parameters(self):
 		self._actor.reset_parameters()
