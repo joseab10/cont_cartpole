@@ -53,6 +53,8 @@ class DQN:
 		self._loss_function = nn.MSELoss()
 		self._q_optimizer = optim.Adam(self._q.parameters(), lr=self._learning_rate)
 
+		self._run = 0
+
 	def _get_action(self, s, deterministic=False):
 		return self._pi.get_action(s, deterministic=deterministic)
 
@@ -63,6 +65,8 @@ class DQN:
 
 		stats = EpisodeStats(episode_lengths=np.zeros(episodes), episode_rewards=np.zeros(episodes),
 							 episode_loss=np.zeros(episodes))
+
+		self._run += 1
 
 		for e in range(episodes):
 
@@ -135,7 +139,8 @@ class DQN:
 					break
 				s = ns
 
-			pr_stats = {'steps': int(stats.episode_lengths[e] + 1), 'episode': e + 1, 'episodes': episodes,
+			pr_stats = {'run': self._run, 'steps': int(stats.episode_lengths[e] + 1),
+						'episode': e + 1, 'episodes': episodes,
 						'reward': stats.episode_rewards[e], 'loss': stats.episode_loss[e]}
 			print_stats(pr_stats, ', Epsilon: {:6.5f}'.format(epsilon))
 
@@ -144,6 +149,9 @@ class DQN:
 	def reset_parameters(self):
 		self._q.reset_parameters()
 		self._q_target.reset_parameters()
+
+		hard_update(self._q_target, self._q)
+
 		self._pi.reset_parameters()
 		if self._use_rbuffer:
 			self._replay_buffer = ReplayBuffer(self._rbuffer_max_size)

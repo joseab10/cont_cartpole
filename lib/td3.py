@@ -81,19 +81,21 @@ class TD3:
 
 		self._critic = critic
 		self._critic_target = copy.deepcopy(self._critic)
+		self._critic_loss = nn.MSELoss()
 		self._critic_optimizer = torch.optim.Adam(self._critic.parameters(), lr=lr)
 
 		self.reward_fun = reward_fun
 
 		self._gamma = gamma
 		self._tau = tau
-		self.policy_freq = policy_freq
+		self._policy_freq = policy_freq
 
 		self._rbuffer_max_size = max_buffer_size
 		self._replay_buffer = ReplayBuffer(self._rbuffer_max_size)
 		self._batch_size = batch_size
 
 		self._steps = 0
+		self._run = 0
 
 	def get_action(self, s, deterministic=False):
 		return self._actor.get_action(s, deterministic=deterministic)
@@ -103,13 +105,15 @@ class TD3:
 		stats = EpisodeStats(episode_lengths=np.zeros(episodes), episode_rewards=np.zeros(episodes),
 							 episode_loss=np.zeros(episodes))
 
+		self._run += 1
+
 		for e in range(episodes):
 
 			s = env.reset(initial_state=initial_state, noise_amplitude=initial_noise)
 
 			for t in range(time_steps):
 
-				a = self.get_action(s)
+				a = self._actor.get_action(s, deterministic=False)
 				ns, r, d, _ = env.step(tn(a))
 
 				stats.episode_rewards[e] += r
@@ -122,19 +126,19 @@ class TD3:
 				b_states, b_actions, b_nstates, b_rewards, b_terminal = self._replay_buffer.random_next_batch(self._batch_size)
 
 				# Get action according to target actor policy
-				b_nactions = self._actor_target(b_nstates)
+				b_nactions = self._actor_target.get_action(b_nstates, deterministic=False)
 
 				# Compute the target Q value from target critic
 				target_Q1, target_Q2 = self._critic_target(b_nstates, b_nactions)
 				target_Q = torch.min(target_Q1, target_Q2).reshape((-1))
 				target_Q = b_rewards + (1 - b_terminal) * self._gamma * target_Q
-				target_Q = target_Q.reshape((-1,1)).detach()
+				target_Q = target_Q.reshape((-1, 1)).detach()
 
 				# Get current Q estimates from critic
 				current_Q1, current_Q2 = self._critic(b_states, b_actions)
 
 				# Compute critic loss
-				critic_loss = F.mse_loss(current_Q1, target_Q) + F.mse_loss(current_Q2, target_Q)
+				critic_loss = self._critic_loss(current_Q1, target_Q) + self._critic_loss(current_Q2, target_Q)
 
 				stats.episode_loss[e] += critic_loss.item()
 
@@ -144,10 +148,10 @@ class TD3:
 				self._critic_optimizer.step()
 
 				# Delayed policy updates
-				if self._steps % self.policy_freq == 0:
+				if self._steps % self._policy_freq == 0:
 
-					# Compute actor losses
-					actor_loss = -self._critic.Q1(b_states, self._actor(b_states)).mean()
+					# Compute actor losses by the deterministic policy gradient
+					actor_loss = -self._critic.Q1(b_states, self._actor.get_action(b_states, deterministic=True)).mean()
 
 					# Optimize the actor
 					self._actor_optimizer.zero_grad()
@@ -156,13 +160,14 @@ class TD3:
 
 					# Soft-Update the target models
 					soft_update(self._critic_target, self._critic, self._tau)
-					soft_update(self._actor, self._actor_target, self._tau)
+					soft_update(self._actor_target, self._actor, self._tau)
 
 				if d:
 					break
 				s = ns
 
-			pr_stats = {'steps': int(stats.episode_lengths[e] + 1), 'episode': e + 1, 'episodes': episodes,
+			pr_stats = {'run': self._run, 'steps': int(stats.episode_lengths[e] + 1),
+						'episode': e + 1, 'episodes': episodes,
 						'reward': stats.episode_rewards[e], 'loss': stats.episode_loss[e]}
 			print_stats(pr_stats)
 
@@ -173,5 +178,9 @@ class TD3:
 		self._actor_target.reset_parameters()
 		self._critic.reset_parameters()
 		self._critic_target.reset_parameters()
+
+		hard_update(self._actor_target, self._actor)
+		hard_update(self._critic_target, self._critic)
+
 		self._steps = 0
 		self._replay_buffer = ReplayBuffer(self._rbuffer_max_size)

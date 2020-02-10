@@ -96,12 +96,42 @@ def print_stats(stats, extra_str=''):
 	:return:          None
 	"""
 
-	msg = "{0[steps]:>6d} Steps, in Episode {0[episode]:>6d}/{0[episodes]:<6d}, Reward {0[reward]:=10.3f}"
+	msg = "Run {0[run]:>2d}, {0[steps]:>6d} Steps, in Episode {0[episode]:>6d}/{0[episodes]:<6d}, Reward {0[reward]:=10.3f}"
 
 	if 'loss' in stats:
 		msg += ", Loss {0[loss]:=10.4f}"
 
 	print(msg.format(stats), extra_str)
+
+def print_agg_stats(stats):
+
+	for stat in stats:
+		run = stat['run']
+		run_stats = stat['stats']
+
+		runs = run_stats['rewards'].shape[0]
+		episodes = run_stats['rewards'].shape[1]
+
+		print_header(2, '{}: {} runs x {} episodes'.format(run.title(), runs, episodes))
+
+		avg_rw = np.mean(run_stats['rewards'], axis=0)
+		sdv_rw = np.std(run_stats['rewards'], axis=0)
+		avg_len = np.mean(run_stats['lengths'], axis=0)
+		sdv_len = np.std(run_stats['lengths'], axis=0)
+
+		for agent in range(runs):
+			print_header(3, 'Run {}/{}:'.format(agent, runs))
+			print('Rewards: mean = {:>8.4f}, stddev = {:>8.4f}'.format(avg_rw[agent], sdv_rw[agent]))
+			print('Lengths: mean = {:>8.4f}, stddev = {:>8.4f}'.format(avg_len[agent], sdv_len[agent]))
+
+		avg_rw = np.mean(run_stats['rewards'])
+		sdv_rw = np.std(run_stats['rewards'])
+		avg_len = np.mean(run_stats['lengths'])
+		sdv_len = np.std(run_stats['lengths'])
+
+		print_header(3, 'Global {} Stats'.format(run.title()))
+		print('Rewards: mean = {:>8.4f}, stddev = {:>8.4f}'.format(avg_rw, sdv_rw))
+		print('Lengths: mean = {:>8.4f}, stddev = {:>8.4f}'.format(avg_len, sdv_len))
 
 
 def plot_aggregate(values, label='', smth_wnd=50, plot_mean=False, plot_stdev=False, plot_med=True, plot_iqr=True,

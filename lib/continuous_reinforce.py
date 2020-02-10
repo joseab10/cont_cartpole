@@ -38,6 +38,8 @@ class REINFORCE:
 
 		self._pi_optimizer = optim.Adam(self._pi.parameters(), lr=self._learning_rate)
 
+		self._run = 0
+
 	def _get_action(self, s, deterministic=False):
 
 		return self._pi.get_action(s, deterministic=deterministic)
@@ -46,8 +48,11 @@ class REINFORCE:
 		return self._action_fun.act2env(self._get_action(s, deterministic=deterministic))
 
 	def train(self, env, episodes, time_steps, initial_state=None, initial_noise=0.5):
+
 		stats = EpisodeStats(episode_lengths=np.zeros(episodes), episode_rewards=np.zeros(episodes),
 							 episode_loss=np.zeros(episodes))
+
+		self._run += 1
 
 		for e in range(episodes):
 			# Generate an episode.
@@ -116,7 +121,8 @@ class REINFORCE:
 				score_fun.backward()
 				self._pi_optimizer.step()
 
-			pr_stats = {'steps': int(stats.episode_lengths[e] + 1), 'episode': e + 1, 'episodes': episodes,
+			pr_stats = {'run': self._run, 'steps': int(stats.episode_lengths[e] + 1),
+						'episode': e + 1, 'episodes': episodes,
 						'reward': stats.episode_rewards[e], 'loss': stats.episode_loss[e]}
 			print_stats(pr_stats)
 
