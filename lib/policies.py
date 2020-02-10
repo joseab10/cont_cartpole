@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.distributions as td
 
 import numpy as np
 
@@ -221,7 +222,11 @@ class MlpPolicy(nn.Module):
 		a = self.forward(s)
 
 		if not deterministic:
-			a += (torch.randn_like(a) * self._noise).clamp(-self._noise_clip, self._noise_clip)
+			m = td.normal.Normal(0, self._noise)
+			act_noise = m.sample(a.shape)
+			act_noise = act_noise.clamp(-self._noise_clip, self._noise_clip)
+			act_noise = act_noise.detach()
+			a += act_noise
 
 		a = a.clamp(self._act_min, self._act_max)
 
