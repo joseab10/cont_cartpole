@@ -1,5 +1,7 @@
 import numpy as np
 
+import torch
+
 from utils import tn
 
 
@@ -39,6 +41,13 @@ def identity(a):
 
 def clip_action(a):
 	return np.clip(a, -1+1e-8, 1-1e-8)
+
+
+def clamp_action(min_act, max_act):
+	def f(a):
+		return torch.clamp(a, min_act, max_act)
+
+	return f
 
 
 # Convert from discrete to continuous actions through a dictionary mapping
