@@ -2,10 +2,10 @@ import numpy as np
 import pickle
 
 from continuous_cartpole import ContinuousCartPoleEnv
-from utils import mkdir, timestamp, EpisodeStats, print_header, print_stats, plot_run_stats, tn
+from utils import mkdir, timestamp, EpisodeStats, print_header, print_stats, plot_run_stats, tn, print_agg_stats
 
 
-def test_agent(env, agent, episodes=5, time_steps=500, initial_state=None, initial_noise=None, render=True):
+def test_agent(env, agent, run=0, episodes=5, time_steps=500, initial_state=None, initial_noise=None, render=True):
 
 	stats = EpisodeStats(episode_lengths=np.zeros(episodes), episode_rewards=np.zeros(episodes),
 						 episode_loss=np.zeros(episodes))
@@ -30,7 +30,7 @@ def test_agent(env, agent, episodes=5, time_steps=500, initial_state=None, initi
 			if d:
 				break
 
-		pr_stats = {'steps': int(stats.episode_lengths[e] + 1), 'episode': e + 1, 'episodes': episodes,
+		pr_stats = {'run': run,'steps': int(stats.episode_lengths[e] + 1), 'episode': e + 1, 'episodes': episodes,
 					'reward': stats.episode_rewards[e]}
 		print_stats(pr_stats)
 
@@ -73,7 +73,7 @@ def train_agent(agent, desc='Agent1', file_name='agent1', runs=5, episodes=5000,
 			pickle.dump(agent, f)
 
 		# Run (deterministic) tests on the trained agent and save the statistics
-		test_stats = test_agent(env, agent, episodes=test_episodes, time_steps=time_steps,
+		test_stats = test_agent(env, agent, run=run + 1, episodes=test_episodes, time_steps=time_steps,
 								initial_state=init_state, initial_noise=init_noise, render=show)
 		run_test_stats.append(test_stats)
 
@@ -101,6 +101,10 @@ def train_agent(agent, desc='Agent1', file_name='agent1', runs=5, episodes=5000,
 	plot_stats = [
 		{'run': 'train', 'stats': {'rewards': train_rewards, 'lengths': train_lengths, 'losses': train_losses}},
 		{'run': 'test', 'stats': {'rewards': test_rewards, 'lengths': test_lengths}}]
+
+	# ... and print their aggregate values
+	print_header(1, 'Aggregate Stats')
+	print_agg_stats(plot_stats)
 
 	# Save Statistics
 	exp_stats_dir = data_dir + '/' + file_name
