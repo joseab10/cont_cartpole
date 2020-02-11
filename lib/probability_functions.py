@@ -93,12 +93,13 @@ class BetaDistribution(nn.Module):
 		idx = indices[(alpha > 1) & (beta > 1)]
 		mode[idx] = (alpha[idx] - 1) / (alpha[idx] + beta[idx] - 2)
 
+		# Uniform
 		idx = indices[(alpha == 1) & (beta == 1)]
-		mode[idx] = np.random.uniform(0, 1, idx)
+		mode[idx] = np.random.uniform(0, 1, len(idx))
 
 		# Bi-Modal
 		idx = indices[(alpha < 1) & (beta < 1)]
-		mode[idx] = np.random.choice([0, 1])
+		mode[idx] = np.random.choice([0, 1], len(idx))
 
 		idx = indices[(alpha <= 1) & (beta > 1)]
 		mode[idx] = 0
