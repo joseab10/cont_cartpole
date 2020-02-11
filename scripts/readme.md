@@ -4,42 +4,17 @@ The purpose of this project is to test and compare different RL algorithms on Op
 
 The main scripts are for:
 
-## Training
-
-The script `train_agent.py` is the go-to program for setting up, training and testing an RL agent.
-
-The script will run the training and test functions for each agent a specified number of times to get better statistics,
- save (using _pickle_) the model of the agent after each run, and save the statistics and their plots after all runs
-  have taken place.
-
-### Syntax
-It's syntax is as follows
-
-    train_agent.py --exp <experiment_file>
-
-where:
-
-- **`experiment_file`** _(str)_ _[*, def="experiments_example.json"]_: is the path to a json file including a list of the desired experiments to be run, each with it's own
-configuration.
-<br>An example can be found in `experiments_example.json`.
-<br>**Note**: Not every single parameter needs to be configured, as a matter of fact, everything has already some
-default values and only those things that need to be changed have to be included.
-For the _defaults_, make sure to check the dictionaries in `parameters.py`. Be sure to also check the
-`experiments_min.json` file for that purpose.
-
-The objective of the experiment files is to keep track of all the configuration settings, while easily associating them
-with their corresponding models, stats and plots. For that purpose, it is encouraged to not edit them after a successful
-run, but rather create a new file for further testing.
-
 
 ## Testing
 
-Even though `train_agent.py` already tests an agent's performance in a deterministic way, it is usually the case that
+### test_agent.py
+
+Even though each agent file already tests an agent's performance in a deterministic way, it is usually the case that
 this is done for statistical purposes and without rendering the environment to allow for a quicker simulation. For that
  reason, the script `test_agent.py` can be used to actually see the agent in action.
 
 
-### Syntax
+#### Syntax
 
 It's syntax is as follows:
  
@@ -84,11 +59,13 @@ where:
  
  ## Plotting
  
+ ### plot_data.py
+ 
  The script `plot_data.py` can be used to generate plots from saved statistical data with different settings as the ones
  generated automatically by the `train_agent.py` script.
  
  
- ### Syntax
+ #### Syntax
  
  It's syntax is as follows:
  
@@ -114,3 +91,72 @@ where:
 
 - **`smoothing_window`** _(int)_ _[Opt, def=10]_ : the smoothing window over which the statistics will be averaged for plotting
  purposes.
+ 
+ 
+ ### plot_compare.py
+ 
+ The script `plot_compare.py` can be used to generate plots from several saved statistical data files in order to
+ compare the learning curves among them.
+ 
+ This script only plots the median curve and IQR area for each agent.
+ 
+ 
+ #### Syntax
+ 
+ It's syntax is as follows:
+ 
+    plot_compare.py --files <stats_files> --labels <curve_labels> [--nosh] [--save] [--dir <plot_path>]
+    [--fname <savefile_name>] [--smw <smoothing_window>]
+    
+where:
+
+- **`stats_files`** _(str)_ : is a comma-separated list of paths to the saved statistics files to be compared.
+
+- **`curve_labels`** _(str)_ : is a comma-separated list of labels for the agents to be shown in the plot's legend. The 
+length of this list must be equal to that of the `stats_files`.
+
+- **`--nosh`** : Flag for not displaying/showing the plots.
+
+- **`--save`** : Flag for saving the plots as `*.png` image files.
+
+    - **`plot_path`** _(str)_ _[Opt, def="../save/plots/compare/"]_ : Path for saving the plots.
+    
+    - **`savefile_name`** _(str)_ _[Opt, def="plot_compare"]_ : Name for the files to be saved. This will be combined
+    with other information such as _train/test_, time stamp, etc. to form the complete file name.
+
+- **`smoothing_window`** _(int)_ _[Opt, def=10]_ : the smoothing window over which the statistics will be averaged for plotting
+ purposes.
+
+
+## Printing
+
+### print_data_stats.py
+
+Used for printing the aggregated stats (mean, stdev) of the rewards and lengths for a given file.
+It outputs the stats per run and globally for all runs.
+This functionality has since been moved to the training function as well.
+
+#### Syntax
+ 
+It's syntax is as follows:
+ 
+    print_data_stats.py --file <stats_file>
+    
+where:
+
+- **`stats_file`** _(str)_ : the path to the saved statistics file to be printed.
+
+
+### print_model_params.py
+
+Used for printing the parameters for a given saved model.
+
+#### Syntax
+
+It's syntax is as follows:
+ 
+    print_model_params.py --file <model_file>
+    
+where:
+
+- **`model_file`** _(str)_ : the path to the saved model file to be printed.
