@@ -11,36 +11,36 @@ from probability_functions import *
 from utils import *
 
 
-
 class GaussPolicy(nn.Module):
-	def __init__(self, state_dim, action_dim, mean_non_linearity=F.relu, mean_hidden_layers=1, mean_hidden_dim=20,
-											   var_non_linearity=F.relu,  var_hidden_layers=1,  var_hidden_dim=20):
+	def __init__(self, state_dim, action_dim, input_non_linearity=F.relu, input_hidden_layers=1, input_hidden_dim=20):
 
 		super(GaussPolicy, self).__init__()
 
 		self._state_dim = state_dim
 		self._action_dim = action_dim
 
-		self._mean_non_linearity = mean_non_linearity
-		self._mean_hidden_layers = mean_hidden_layers
-		self._mean_hidden_dim    = mean_hidden_dim
+		self._in_non_linearity = input_non_linearity
+		self._in_hidden_layers = input_hidden_layers
+		self._in_hidden_dim = input_hidden_dim
 
-		self._var_non_linearity = var_non_linearity
-		self._var_hidden_layers = var_hidden_layers
-		self._var_hidden_dim    = var_hidden_dim
+		self._input_model = MLP(self._state_dim, self._in_hidden_dim, output_non_linearity=None,
+								hidden_dim=self._in_hidden_dim, hidden_non_linearity=self._in_non_linearity,
+								hidden_layers=self._in_hidden_layers)
 
-		self._mu_fa = MLP(self._state_dim, self._action_dim, hidden_dim=self._mean_hidden_layers,
-						  hidden_non_linearity=self._mean_non_linearity, hidden_layers=self._mean_hidden_layers)
-		self._sigma_fa = MLP(self._state_dim, self._action_dim, hidden_dim=self._var_hidden_dim,
-							 hidden_non_linearity=self._var_non_linearity, hidden_layers=self._var_hidden_layers)
+		self._mu_model = Linear(self._in_hidden_dim, self._action_dim)
 
-		self._output_layer = NormalDistribution()
+		self._sigma_model = Linear(self._in_hidden_dim, self._action_dim)
+
+		self._output_model = NormalDistribution()
 
 	def forward(self, s, a):
 
-		mu = self._mu_fa(s)
-		sigma = self._sigma_fa(s)
-		p = self._output_layer(a, mu, sigma)
+		x = self._input_model(s)
+
+		mu = self._mu_model(x)
+		sigma = self._mu_model(x)
+
+		p = self._output_model(a, mu, sigma)
 
 		# Cache last result
 		self._p = p
@@ -57,12 +57,12 @@ class GaussPolicy(nn.Module):
 		if deterministic:
 
 			# Get the point of maximum probability, i.e.: the mode
-			a = self._output_layer.mode()
+			a = self._output_model.mode()
 			a = tn(a)
 
 		else:
 
-			a = self._output_layer.sample()
+			a = self._output_model.sample()
 
 			if self._action_dim > 1:
 				a = np.random.choice(tn(a), tn(self._p))
@@ -73,9 +73,9 @@ class GaussPolicy(nn.Module):
 
 	def reset_parameters(self):
 
-		self._mu_fa.reset_parameters()
-		self._sigma_fa.reset_parameters()
-		self._output_layer.reset_parameters()
+		self._mu_model.reset_parameters()
+		self._sigma_model.reset_parameters()
+		self._output_model.reset_parameters()
 
 		if hasattr(self, '_p'):
 			self.__delattr__('_p')
@@ -83,8 +83,7 @@ class GaussPolicy(nn.Module):
 
 class BetaPolicy(nn.Module):
 	def __init__(self, state_dim, action_dim=1, act_min=0, act_max = 1,
-				 a_non_linearity=F.relu, a_hidden_layers=1, a_hidden_dim=20,
-				 b_non_linearity=F.relu, b_hidden_layers=1, b_hidden_dim=20, ns=True):
+				 input_non_linearity=F.relu, input_hidden_layers=1, input_hidden_dim=20, ns=True):
 
 		super(BetaPolicy, self).__init__()
 
@@ -100,37 +99,35 @@ class BetaPolicy(nn.Module):
 		self._state_dim = state_dim
 		self._action_dim = action_dim
 
-		self._a_non_linearity = a_non_linearity
-		self._a_hidden_layers = a_hidden_layers
-		self._a_hidden_dim    = a_hidden_dim
-
-		self._b_non_linearity = b_non_linearity
-		self._b_hidden_layers = b_hidden_layers
-		self._b_hidden_dim    = b_hidden_dim
+		self._in_non_linearity = input_non_linearity
+		self._in_hidden_layers = input_hidden_layers
+		self._in_hidden_dim = input_hidden_dim
 
 		self._numerically_stable = ns
 
-		# Use softplus to force alpha and beta to be >0
-		self._alpha_fa = MLP(self._state_dim, self._action_dim, output_non_linearity=F.softplus,
-							 hidden_dim=self._a_hidden_dim, hidden_non_linearity=self._a_non_linearity,
-							 hidden_layers=self._a_hidden_layers)
-		self._beta_fa = MLP(self._state_dim, self._action_dim, output_non_linearity=F.softplus,
-							hidden_dim=self._b_hidden_dim,
-							hidden_non_linearity=self._b_non_linearity, hidden_layers=self._b_hidden_layers)
+		self._input_model = MLP(self._state_dim, self._in_hidden_dim, output_non_linearity=None,
+								hidden_dim=self._in_hidden_dim, hidden_non_linearity=self._in_non_linearity,
+								hidden_layers=self._in_hidden_layers)
 
-		self._output_layer = BetaDistribution()
+		self._alpha_model = Linear(self._in_hidden_dim, self._action_dim)
+
+		self._beta_model = Linear(self._in_hidden_dim, self._action_dim)
+
+		self._output_model = BetaDistribution()
 
 	def forward(self, s, a):
 
 		s = tt(s)
 		a = tt(a)
 
-		# Linearly transforms a continuous action from [act_min, act_max] to [0, 1] where the Beta PDF is defined
-		transformed_a = self._action_m * a + self._action_b
-		transformed_a = torch.clamp(transformed_a, 0, 1)
+		x = self._input_model(s)
 
-		alpha = self._alpha_fa(s)
-		beta  = self._beta_fa(s)
+		# Use softplus to force alpha and beta to be >0
+		alpha = self._alpha_model(x)
+		alpha = F.softplus(alpha)
+
+		beta = self._beta_model(x)
+		beta = F.softplus(beta)
 
 		if self._numerically_stable:
 			# Avoid alpha, beta < 1 so the gradient does not go to infinity!
@@ -141,7 +138,11 @@ class BetaPolicy(nn.Module):
 		self._alpha = alpha
 		self._beta  = beta
 
-		p = self._output_layer(transformed_a, alpha, beta)
+		# Linearly transforms a continuous action from [act_min, act_max] to [0, 1] where the Beta PDF is defined
+		transformed_a = self._action_m * a + self._action_b
+		transformed_a = torch.clamp(transformed_a, 0, 1)
+
+		p = self._output_model(transformed_a, alpha, beta)
 		self._p = p
 
 		return p
@@ -152,18 +153,14 @@ class BetaPolicy(nn.Module):
 		# Run to get a fresh copy of alpha and beta
 		self.forward(s, torch.rand(self._action_dim))
 
-		alpha = tn(self._alpha)
-		beta = tn(self._beta)
-
-
 		if deterministic:
 
 			# Get the point of maximum probability, i.e.: the mode
-			a = self._output_layer.mode()
+			a = self._output_model.mode()
 			a = tn(a)
 
 		else:
-			a = self._output_layer.sample()
+			a = self._output_model.sample()
 
 			if self._action_dim > 1:
 				p = self.forward(s, a)
@@ -180,9 +177,9 @@ class BetaPolicy(nn.Module):
 
 	def reset_parameters(self):
 
-		self._alpha_fa.reset_parameters()
-		self._beta_fa.reset_parameters()
-		self._output_layer.reset_parameters()
+		self._alpha_model.reset_parameters()
+		self._beta_model.reset_parameters()
+		self._output_model.reset_parameters()
 
 
 class MlpPolicy(nn.Module):
