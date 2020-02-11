@@ -183,9 +183,8 @@ if __name__ == '__main__':
 		{'decay': sch_exp_decay        , 'annealing': False, 'label': 'Exponential'},
 
 		# Annealed
-		{'decay': sch_no_decay         , 'annealing':  True, 'label': 'Constant'},
-		{'decay': sch_linear_decay     , 'annealing':  True, 'label': 'Linear'},
-		{'decay': sch_exp_decay        , 'annealing':  True, 'label': 'Exponential'},
+		{'decay': sch_linear_decay     , 'annealing':  True, 'label': 'Linear Annealed'},
+		{'decay': sch_exp_decay        , 'annealing':  True, 'label': 'Exponential Annealed#'},
 	]
 
 	for function in decay_functions:
@@ -195,6 +194,10 @@ if __name__ == '__main__':
 		y = epsilon.value(x_in)
 
 		plt.plot(x_in, y, label=function['label'])
+
+	plt.xlabel("Episode")
+	plt.ylabel("ε")
+	plt.title("Epsilon Schedule")
 
 	plt.legend()
 	plt.show()
