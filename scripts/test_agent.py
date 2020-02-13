@@ -21,7 +21,9 @@ parser.add_argument('--inist' , action='store', default='none', help='Initial St
 parser.add_argument('--inirnd', action='store', default='none', help='Initial Noise.', type=str)
 parser.add_argument('--rew'   , action='store', default='none', help='Reward Function.', type=str)
 
-parser.add_argument('--smw'   , action='store', default=10    , help='Smoothing window', type=int)
+parser.add_argument('--stoc', action='store_true', help='Select Actions stochastically.')
+
+parser.add_argument('--smw'   , action='store', default=10    , help='Smoothing window.', type=int)
 
 args = parser.parse_args()
 
@@ -35,7 +37,7 @@ reward_function = agent.reward_fun
 env = ContinuousCartPoleEnv(reward_function=reward_function)
 
 stats = test_agent(env, agent, episodes=args.ep, time_steps=args.ts, initial_state=initial_state,
-				   initial_noise=initial_noise, render=True)
+				   initial_noise=initial_noise, render=True, deterministic=not args.stoc)
 
 plt_stats = [{'run': 'test', 'stats': {'rewards': stats.episode_rewards.reshape([1, args.ep]),
 										'lengths': stats.episode_lengths.reshape([1, args.ep])}}]

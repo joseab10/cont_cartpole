@@ -39,16 +39,13 @@ act_fun = act_clipcont
 reward_fun = rf_info2d_pos
 
 # Policy
-a_non_linear = F.relu
-a_hid_layers = 1
-a_hid_dim    = 20
-b_non_linear = F.relu
-b_hid_layers = 1
-b_hid_dim    = 20
+pi_non_linear = F.relu
+pi_hid_layers = 1
+pi_hid_dim    = 20
 ns = True  # Numerically Stable
 
 policy = BetaPolicy(state_dim, action_dim=action_dim, act_min=act_min, act_max=act_max,
-					input_non_linearity=a_non_linear, input_hidden_layers=a_hid_layers, input_hidden_dim=a_hid_dim,
+					input_non_linearity=pi_non_linear, input_hidden_layers=pi_hid_layers, input_hidden_dim=pi_hid_dim,
 					ns=ns)
 
 # Baseline Function

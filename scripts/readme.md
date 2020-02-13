@@ -19,7 +19,7 @@ this is done for statistical purposes and without rendering the environment to a
 It's syntax is as follows:
  
     test_agent.py --file <model_file> [--ts <time_steps>] [--inist <initial_state>] [--inirnd <initial_noise>]
-    [--rew <reward_function>] [--sw <smoothing_window>]`
+    [--rew <reward_function>] [--sw <smoothing_window>] [--stoc]`
 
 where:
 
@@ -55,6 +55,10 @@ where:
        
 - **`smoothing_window`** _(int)_ _[Opt, def=10]_ : the smoothing window over which the statistics will be averaged for plotting
  purposes.
+ 
+- **`--stoc`** : Use stochastic action selection/sampling. If this flag is not used, then the model will use a deterministic
+approach for selecting actions: i.e. without random noise, or taking the _argmax_ of the value functions, or using the mode
+of probability-based policies.
  
  
  ## Plotting
@@ -145,18 +149,3 @@ It's syntax is as follows:
 where:
 
 - **`stats_file`** _(str)_ : the path to the saved statistics file to be printed.
-
-
-### print_model_params.py
-
-Used for printing the parameters for a given saved model.
-
-#### Syntax
-
-It's syntax is as follows:
- 
-    print_model_params.py --file <model_file>
-    
-where:
-
-- **`model_file`** _(str)_ : the path to the saved model file to be printed.

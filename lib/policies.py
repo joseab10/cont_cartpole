@@ -209,8 +209,9 @@ class MlpPolicy(nn.Module):
 		self._fa = MLP(self._state_dim, self._action_dim, self._out_non_linearity, self._hidden_dim,
 					   self._non_linearity, self._hidden_layers)
 
+	def forward(self, s, a=None):
 
-	def forward(self, s):
+		del a
 
 		return self._fa(tt(s))
 

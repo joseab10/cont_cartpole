@@ -64,7 +64,7 @@ act_fun = act_disc2cont
 
 # Agent
 lr = 1e-4
-gamma = 0.99
+gamma = 0.98
 doubleQ = True # Run doubleQ-DQN sampling from Q_target and bootstraping from Q
 rb = True
 rb_max_size = 1e6

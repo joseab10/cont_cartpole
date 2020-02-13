@@ -5,7 +5,8 @@ from continuous_cartpole import ContinuousCartPoleEnv
 from utils import mkdir, timestamp, EpisodeStats, print_header, print_stats, plot_run_stats, tn, print_agg_stats
 
 
-def test_agent(env, agent, run=0, episodes=5, time_steps=500, initial_state=None, initial_noise=None, render=True):
+def test_agent(env, agent, run=0, episodes=5, time_steps=500, initial_state=None, initial_noise=None, render=True,
+			   deterministic=True):
 
 	stats = EpisodeStats(episode_lengths=np.zeros(episodes), episode_rewards=np.zeros(episodes),
 						 episode_loss=np.zeros(episodes))
@@ -21,7 +22,7 @@ def test_agent(env, agent, run=0, episodes=5, time_steps=500, initial_state=None
 			if render:
 				env.render()
 
-			a = agent.get_action(s, deterministic=True)
+			a = agent.get_action(s, deterministic=deterministic)
 			s, r, d, _ = env.step(tn(a))
 
 			stats.episode_rewards[e] += r

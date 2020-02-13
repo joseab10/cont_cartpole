@@ -40,7 +40,7 @@ def identity(a):
 
 
 def clip_action(a):
-	return np.clip(a, -1+1e-8, 1-1e-8)
+	return np.clip(tn(a), -1+1e-8, 1-1e-8)
 
 
 def clamp_action(min_act, max_act):
@@ -48,6 +48,13 @@ def clamp_action(min_act, max_act):
 		return torch.clamp(a, min_act, max_act)
 
 	return f
+
+
+def tanh_action(a):
+	return clip_action(np.tanh(a))
+
+def tanh_inv_action(a):
+	return np.arctanh(a)
 
 
 # Convert from discrete to continuous actions through a dictionary mapping
@@ -60,3 +67,5 @@ act_disc9cont = ActDisc2Cont({0: -1.00, 1: -0.75, 2: -0.50, 3: -0.25, 4: 0.00, 5
 # Clips actions between [-1, 1]
 act_clipcont  = ActCont2Cont(clip_action, clip_action)
 act_identity  = ActCont2Cont(identity, identity)
+act_tanh      = ActCont2Cont(tanh_action, tanh_inv_action)
+
